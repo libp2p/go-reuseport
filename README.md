@@ -1,6 +1,7 @@
 # go-reuseport
 
-This package enables listening and dialing from _the same_ TCP or UDP port. This means that the following sockopts are set:
+This package enables listening and dialing from _the same_ TCP or UDP port.
+This means that the following sockopts are set:
 
 ```
 SO_REUSEADDR
@@ -8,6 +9,13 @@ SO_REUSEPORT
 ```
 
 - godoc: https://godoc.org/github.com/jbenet/go-reuseport
+
+This is a simple package to get around the problem of reusing addresses.
+The go `net` package (to my knowledge) does not allow setting socket options.
+This is particularly problematic when attempting to do TCP NAT holepunching,
+which requires a process to both Listen and Dial on the same TCP port.
+This package makes this possible for me. It is a pretty narrow use case, but
+perhaps this package can grow to be more general over time.
 
 ## Examples
 
