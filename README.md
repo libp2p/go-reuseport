@@ -1,5 +1,7 @@
 # go-reuseport
 
+![travisbadge](https://travis-ci.org/jbenet/go-reuseport.svg)
+
 This package enables listening and dialing from _the same_ TCP or UDP port.
 This means that the following sockopts are set:
 
