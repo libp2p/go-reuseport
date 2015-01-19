@@ -20,6 +20,7 @@ package reuseport
 import (
 	"errors"
 	"net"
+	"time"
 )
 
 // ErrUnsuportedProtocol signals that the protocol is not currently
@@ -57,7 +58,23 @@ func Dial(network, laddr, raddr string) (net.Conn, error) {
 		d.D.LocalAddr = netladdr
 	}
 
-	return dial(d.D, network, raddr)
+	// there's a rare case where dial returns successfully but for some reason the
+	// RemoteAddr is not yet set. We wait here a while until it is, and if too long
+	// passes, we fail.
+	c, err := dial(d.D, network, raddr)
+	if err != nil {
+		return nil, err
+	}
+
+	for start := time.Now(); c.RemoteAddr() == nil; {
+		if time.Now().Sub(start) > time.Second {
+			c.Close()
+			return nil, ErrReuseFailed
+		}
+
+		<-time.After(20 * time.Microsecond)
+	}
+	return c, nil
 }
 
 // Dialer is used to specify the Dial options, much like net.Dialer.
