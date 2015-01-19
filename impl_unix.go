@@ -108,36 +108,19 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		}
 	}
 
-	// try to connect in a loop for EADDRINUSE errors.
-	start := time.Now()
-	for {
+	if fd, err = socket(rfamily, socktype, rprotocol); err != nil {
+		return nil, err
+	}
 
-		if fd, err = socket(rfamily, socktype, rprotocol); err != nil {
-			return nil, err
-		}
-
-		if err = syscall.Bind(fd, localSockaddr); err != nil {
-			// fmt.Println("bind failed")
-			syscall.Close(fd)
-			return nil, err
-		}
-		if err = connect(fd, remoteSockaddr); err != nil {
-			syscall.Close(fd)
-			if err == syscall.EADDRINUSE {
-				// if we've waited longer than 2 seconds bail.
-				if time.Now().Sub(start) > 2*time.Second {
-					return nil, err
-				}
-				// otherwise, wait a bit and try again
-				<-time.After(20 * time.Microsecond)
-				continue
-			}
-
-			// fmt.Println("connect failed", localSockaddr, err)
-			return nil, err
-		}
-
-		break
+	if err = syscall.Bind(fd, localSockaddr); err != nil {
+		// fmt.Println("bind failed")
+		syscall.Close(fd)
+		return nil, err
+	}
+	if err = connect(fd, remoteSockaddr); err != nil {
+		syscall.Close(fd)
+		// fmt.Println("connect failed", localSockaddr, err)
+		return nil, err
 	}
 
 	if rprotocol == syscall.IPPROTO_TCP {
