@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"syscall"
 
-	resolve "github.com/jbenet/go-net-resolve-addr"
 	sockaddrnet "github.com/jbenet/go-sockaddr/net"
 )
 
@@ -26,7 +25,7 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		localSockaddr  syscall.Sockaddr
 	)
 
-	netAddr, err := resolve.ResolveAddr("dial", netw, addr)
+	netAddr, err := ResolveAddr(netw, addr)
 	if err != nil {
 		// fmt.Println("resolve addr failed")
 		return nil, err
@@ -96,7 +95,7 @@ func listen(netw, addr string) (l net.Listener, err error) {
 		sockaddr   syscall.Sockaddr
 	)
 
-	netAddr, err := resolve.ResolveAddr("listen", netw, addr)
+	netAddr, err := ResolveAddr(netw, addr)
 	if err != nil {
 		// fmt.Println("resolve addr failed")
 		return nil, err

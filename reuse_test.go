@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -31,6 +32,13 @@ func TestListenSamePort(t *testing.T) {
 
 	// any ports
 	any := [][]string{
+		[]string{"tcp", "0.0.0.0:0", "0.0.0.0:0"},
+		[]string{"tcp4", "0.0.0.0:0", "0.0.0.0:0"},
+		[]string{"tcp6", "[::]:0", "[::]:0"},
+		[]string{"udp", "0.0.0.0:0", "0.0.0.0:0"},
+		[]string{"udp4", "0.0.0.0:0", "0.0.0.0:0"},
+		[]string{"udp6", "[::]:0", "[::]:0"},
+
 		[]string{"tcp", "127.0.0.1:0"},
 		[]string{"tcp", "[::1]:0"},
 		[]string{"tcp4", "127.0.0.1:0"},
@@ -100,6 +108,13 @@ func TestListenSamePort(t *testing.T) {
 func TestListenDialSamePort(t *testing.T) {
 
 	any := [][]string{
+		[]string{"tcp", "0.0.0.0:0", "0.0.0.0:0"},
+		[]string{"tcp4", "0.0.0.0:0", "0.0.0.0:0"},
+		[]string{"tcp6", "[::]:0", "[::]:0"},
+		[]string{"udp", "0.0.0.0:0", "0.0.0.0:0"},
+		[]string{"udp4", "0.0.0.0:0", "0.0.0.0:0"},
+		[]string{"udp6", "[::]:0", "[::]:0"},
+
 		[]string{"tcp", "127.0.0.1:0", "127.0.0.1:0"},
 		[]string{"tcp4", "127.0.0.1:0", "127.0.0.1:0"},
 		[]string{"tcp6", "[::1]:0", "[::1]:0"},
@@ -155,11 +170,11 @@ func TestListenDialSamePort(t *testing.T) {
 		defer c1.Close()
 		t.Log("dialed", c1.LocalAddr(), c1.RemoteAddr())
 
-		if l1.Addr().String() != c1.LocalAddr().String() {
+		if getPort(l1.Addr()) != getPort(c1.LocalAddr()) {
 			t.Fatal("addrs should match", l1.Addr(), c1.LocalAddr())
 		}
 
-		if l2.Addr().String() != c1.RemoteAddr().String() {
+		if getPort(l2.Addr()) != getPort(c1.RemoteAddr()) {
 			t.Fatal("addrs should match", l2.Addr(), c1.RemoteAddr())
 		}
 
@@ -199,4 +214,8 @@ func TestUnixNotSupported(t *testing.T) {
 			continue
 		}
 	}
+}
+
+func getPort(a net.Addr) string {
+	return strings.Split(a.String(), ":")[1]
 }

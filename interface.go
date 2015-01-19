@@ -20,8 +20,6 @@ package reuseport
 import (
 	"errors"
 	"net"
-
-	resolve "github.com/jbenet/go-net-resolve-addr"
 )
 
 // ErrUnsuportedProtocol signals that the protocol is not currently
@@ -45,7 +43,7 @@ func Dial(network, laddr, raddr string) (net.Conn, error) {
 
 	var d Dialer
 	if laddr != "" {
-		netladdr, err := resolve.ResolveAddr("dial", network, laddr)
+		netladdr, err := ResolveAddr(network, laddr)
 		if err != nil {
 			return nil, err
 		}
