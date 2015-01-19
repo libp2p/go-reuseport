@@ -3,7 +3,6 @@
 package reuseport
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"strconv"
@@ -29,10 +28,9 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 
 	netAddr, err := resolve.ResolveAddr("dial", netw, addr)
 	if err != nil {
-		fmt.Println("resolve addr failed")
+		// fmt.Println("resolve addr failed")
 		return nil, err
 	}
-	fmt.Println("resolve addr ok")
 
 	switch netAddr.(type) {
 	case *net.TCPAddr, *net.UDPAddr:
@@ -51,30 +49,30 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 	remoteSockaddr = sockaddrnet.NetAddrToSockaddr(netAddr)
 
 	if fd, err = syscall.Socket(family, syscall.SOCK_STREAM, syscall.IPPROTO_TCP); err != nil {
-		fmt.Println("tcp socket failed")
+		// fmt.Println("tcp socket failed")
 		return nil, err
 	}
 
 	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, soReuseAddr, 1); err != nil {
-		fmt.Println("reuse addr failed")
+		// fmt.Println("reuse addr failed")
 		return nil, err
 	}
 
 	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, soReusePort, 1); err != nil {
-		fmt.Println("reuse port failed")
+		// fmt.Println("reuse port failed")
 		return nil, err
 	}
 
 	if localSockaddr != nil {
 		if err = syscall.Bind(fd, localSockaddr); err != nil {
-			fmt.Println("bind failed")
+			// fmt.Println("bind failed")
 			return nil, err
 		}
 	}
 
 	// Set backlog size to the maximum
 	if err = syscall.Connect(fd, remoteSockaddr); err != nil {
-		fmt.Println("connect failed")
+		// fmt.Println("connect failed")
 		return nil, err
 	}
 
@@ -100,10 +98,9 @@ func listen(netw, addr string) (l net.Listener, err error) {
 
 	netAddr, err := resolve.ResolveAddr("listen", netw, addr)
 	if err != nil {
-		fmt.Println("resolve addr failed")
+		// fmt.Println("resolve addr failed")
 		return nil, err
 	}
-	fmt.Println("resolve addr ok")
 
 	switch netAddr.(type) {
 	case *net.TCPAddr, *net.UDPAddr:
@@ -115,28 +112,28 @@ func listen(netw, addr string) (l net.Listener, err error) {
 	sockaddr = sockaddrnet.NetAddrToSockaddr(netAddr)
 
 	if fd, err = syscall.Socket(family, syscall.SOCK_STREAM, syscall.IPPROTO_TCP); err != nil {
-		fmt.Println("socket failed")
+		// fmt.Println("socket failed")
 		return nil, err
 	}
 
 	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, soReusePort, 1); err != nil {
-		fmt.Println("setsockopt reuseport failed")
+		// fmt.Println("setsockopt reuseport failed")
 		return nil, err
 	}
 
 	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, soReuseAddr, 1); err != nil {
-		fmt.Println("setsockopt reuseaddr failed")
+		// fmt.Println("setsockopt reuseaddr failed")
 		return nil, err
 	}
 
 	if err = syscall.Bind(fd, sockaddr); err != nil {
-		fmt.Println("bind failed")
+		// fmt.Println("bind failed")
 		return nil, err
 	}
 
 	// Set backlog size to the maximum
 	if err = syscall.Listen(fd, syscall.SOMAXCONN); err != nil {
-		fmt.Println("listen failed")
+		// fmt.Println("listen failed")
 		return nil, err
 	}
 
