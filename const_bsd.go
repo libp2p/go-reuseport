@@ -3,8 +3,8 @@
 package reuseport
 
 import (
-	unix "golang.org/x/sys/unix"
+	"syscall"
 )
 
-var soReusePort = unix.SO_REUSEPORT
-var soReuseAddr = unix.SO_REUSEADDR
+var soReusePort = syscall.SO_REUSEPORT
+var soReuseAddr = syscall.SO_REUSEADDR
