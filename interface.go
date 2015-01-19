@@ -27,13 +27,20 @@ import (
 var ErrUnsupportedProtocol = errors.New("protocol not yet supported")
 
 // ErrReuseFailed is returned if a reuse attempt was unsuccessful.
-var ErrReuseFailed = errors.New("protocol not yet supported")
+var ErrReuseFailed = errors.New("reuse failed")
 
 // Listen listens at the given network and address. see net.Listen
 // Returns a net.Listener created from a file discriptor for a socket
 // with SO_REUSEPORT and SO_REUSEADDR option set.
 func Listen(network, address string) (net.Listener, error) {
-	return listen(network, address)
+	return listenStream(network, address)
+}
+
+// ListenPacket listens at the given network and address. see net.ListenPacket
+// Returns a net.Listener created from a file discriptor for a socket
+// with SO_REUSEPORT and SO_REUSEADDR option set.
+func ListenPacket(network, address string) (net.PacketConn, error) {
+	return listenPacket(network, address)
 }
 
 // Dial dials the given network and address. see net.Dialer.Dial
