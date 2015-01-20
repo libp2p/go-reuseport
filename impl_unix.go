@@ -106,18 +106,27 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		}
 	}
 
-	if fd, err = socket(rfamily, socktype, rprotocol); err != nil {
-		return nil, err
-	}
+	// look at dialTCP in http://golang.org/src/net/tcpsock_posix.go  .... !
+	// here we just try again 3 times.
+	for i := 0; i < 3; i++ {
+		if fd, err = socket(rfamily, socktype, rprotocol); err != nil {
+			return nil, err
+		}
 
-	if err = syscall.Bind(fd, localSockaddr); err != nil {
-		// fmt.Println("bind failed")
-		syscall.Close(fd)
-		return nil, err
+		if err = syscall.Bind(fd, localSockaddr); err != nil {
+			// fmt.Println("bind failed")
+			syscall.Close(fd)
+			return nil, err
+		}
+		if err = connect(fd, remoteSockaddr); err != nil {
+			syscall.Close(fd)
+			// fmt.Println("connect failed", localSockaddr, err)
+			continue // try again.
+		}
+
+		break
 	}
-	if err = connect(fd, remoteSockaddr); err != nil {
-		syscall.Close(fd)
-		// fmt.Println("connect failed", localSockaddr, err)
+	if err != nil {
 		return nil, err
 	}
 
