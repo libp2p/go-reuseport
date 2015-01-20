@@ -314,6 +314,7 @@ func connect(fd int, ra syscall.Sockaddr) error {
 	}
 
 	var err error
+	start := time.Now()
 	for {
 		// if err := fd.pd.WaitWrite(); err != nil {
 		// 	return err
@@ -321,7 +322,8 @@ func connect(fd int, ra syscall.Sockaddr) error {
 		// i'd use the above fd.pd.WaitWrite to poll io correctly, just like net sockets...
 		// but of course, it uses fucking runtime_* functions that _cannot_ be used by
 		// non-go-stdlib source... seriously guys, what kind of bullshit is that!?
-		<-time.After(20 * time.Microsecond)
+		// we're relegated to using syscall.Select (what nightmare that is) or using
+		// a simple but totally bogus time-based wait. garbage.
 		var nerr int
 		nerr, err = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
 		if err != nil {
@@ -329,6 +331,10 @@ func connect(fd int, ra syscall.Sockaddr) error {
 		}
 		switch err = syscall.Errno(nerr); err {
 		case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
+			if time.Now().Sub(start) > time.Second {
+				return err
+			}
+			<-time.After(20 * time.Microsecond)
 		case syscall.Errno(0), syscall.EISCONN:
 			return nil
 		default:
