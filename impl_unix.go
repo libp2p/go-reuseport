@@ -65,6 +65,7 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		lprotocol      int
 		rprotocol      int
 		file           *os.File
+		deadline       time.Time
 		remoteSockaddr syscall.Sockaddr
 		localSockaddr  syscall.Sockaddr
 	)
@@ -78,6 +79,13 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 	case *net.TCPAddr, *net.UDPAddr:
 	default:
 		return nil, ErrUnsupportedProtocol
+	}
+
+	switch {
+	case !dialer.Deadline.IsZero():
+		deadline = dialer.Deadline
+	case dialer.Timeout != 0:
+		deadline = time.Now().Add(dialer.Timeout)
 	}
 
 	localSockaddr = sockaddrnet.NetAddrToSockaddr(dialer.LocalAddr)
@@ -109,12 +117,20 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 			return nil, err
 		}
 
-		if err = syscall.Bind(fd, localSockaddr); err != nil {
-			// fmt.Println("bind failed")
+		// we set the socket to be nonblocking, just like stdlib net
+		if err = syscall.SetNonblock(fd, true); err != nil {
 			syscall.Close(fd)
 			return nil, err
 		}
-		if err = connect(fd, remoteSockaddr); err != nil {
+
+		if localSockaddr != nil {
+			if err = syscall.Bind(fd, localSockaddr); err != nil {
+				syscall.Close(fd)
+				return nil, err
+			}
+		}
+
+		if err = connect(fd, remoteSockaddr, deadline); err != nil {
 			syscall.Close(fd)
 			continue // try again.
 		}
@@ -131,11 +147,6 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 			syscall.Close(fd)
 			return nil, err
 		}
-	}
-
-	if err = syscall.SetNonblock(fd, true); err != nil {
-		syscall.Close(fd)
-		return nil, err
 	}
 
 	switch socktype {
@@ -294,18 +305,27 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 }
 
 // this is close to the connect() function inside stdlib/net
-func connect(fd int, ra syscall.Sockaddr) error {
+func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
 	switch err := syscall.Connect(fd, ra); err {
 	case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
 	case nil, syscall.EISCONN:
+		if !deadline.IsZero() && deadline.Before(time.Now()) {
+			return errTimeout
+		}
 		return nil
 	default:
 		return err
 	}
 
 	var err error
-	start := time.Now()
+	var pr, pw syscall.FdSet
+	FD_SET(uintptr(fd), &pw)
+	FD_SET(uintptr(fd), &pr)
 	for {
+		// wait until the fd is ready to read or write.
+		to := syscall.NsecToTimeval(deadline.Sub(time.Now()).Nanoseconds())
+		syscall.Select(fd+1, &pr, &pw, nil, &to)
+
 		// if err := fd.pd.WaitWrite(); err != nil {
 		// 	return err
 		// }
@@ -313,7 +333,7 @@ func connect(fd int, ra syscall.Sockaddr) error {
 		// but of course, it uses the damn runtime_* functions that _cannot_ be used by
 		// non-go-stdlib source... seriously guys, this is not nice.
 		// we're relegated to using syscall.Select (what nightmare that is) or using
-		// a simple but totally bogus time-based wait. garbage.
+		// a simple but totally bogus time-based wait. such garbage.
 		var nerr int
 		nerr, err = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
 		if err != nil {
@@ -321,14 +341,27 @@ func connect(fd int, ra syscall.Sockaddr) error {
 		}
 		switch err = syscall.Errno(nerr); err {
 		case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
-			if time.Now().Sub(start) > time.Second {
-				return err
-			}
-			<-time.After(20 * time.Microsecond)
+			continue
 		case syscall.Errno(0), syscall.EISCONN:
+			if !deadline.IsZero() && deadline.Before(time.Now()) {
+				return errTimeout
+			}
 			return nil
 		default:
 			return err
 		}
 	}
+}
+
+var errTimeout = &timeoutError{}
+
+type timeoutError struct{}
+
+func (e *timeoutError) Error() string   { return "i/o timeout" }
+func (e *timeoutError) Timeout() bool   { return true }
+func (e *timeoutError) Temporary() bool { return true }
+
+func FD_SET(fd uintptr, p *syscall.FdSet) {
+	n, k := fd/32, fd%32
+	p.Bits[n] |= (1 << uint32(k))
 }

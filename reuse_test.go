@@ -2,11 +2,13 @@ package reuseport
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net"
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func echo(c net.Conn) {
@@ -340,6 +342,68 @@ func TestPacketListenDialSamePort(t *testing.T) {
 			t.Fatal("echo failed", string(hello1), "!=", string(hello2))
 		}
 		t.Log("echoed", string(hello2))
+	}
+}
+
+func TestDialRespectsTimeout(t *testing.T) {
+
+	testCases := [][]string{
+		[]string{"tcp", "127.0.0.1:6780", "1.2.3.4:6781"},
+		[]string{"tcp4", "127.0.0.1:6782", "1.2.3.4:6783"},
+		[]string{"tcp6", "[::1]:6784", "[::2]:6785"},
+	}
+
+	timeout := 50 * time.Millisecond
+
+	for _, tcase := range testCases {
+		network := tcase[0]
+		laddr := tcase[1]
+		raddr := tcase[2]
+
+		// l, err := Listen(network, raddr)
+		// if err != nil {
+		// 	t.Error("without a listener it wont work")
+		// 	continue
+		// }
+		// defer l.Close()
+
+		nladdr, err := ResolveAddr(network, laddr)
+		if err != nil {
+			t.Error("failed to resolve addr", network, laddr, err)
+			continue
+		}
+		t.Log("testing", network, nladdr, raddr)
+
+		d := Dialer{
+			D: net.Dialer{
+				LocalAddr: nil,
+				Timeout:   timeout,
+			},
+		}
+
+		errs := make(chan error)
+		go func() {
+			c, err := d.Dial(network, raddr)
+			if err == nil {
+				errs <- errors.New("should've not connected")
+				c.Close()
+				return
+			}
+			close(errs) // success!
+		}()
+
+	ErrDrain:
+		select {
+		case <-time.After(3 * time.Second):
+			t.Fatal("took too long")
+		case err, more := <-errs:
+			if !more {
+				break
+			}
+			t.Error(err)
+			goto ErrDrain
+		}
+
 	}
 }
 
