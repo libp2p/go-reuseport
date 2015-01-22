@@ -3,6 +3,7 @@
 package reuseport
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"strconv"
@@ -129,6 +130,11 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 			}
 		}
 
+		if err = syscall.SetNonblock(fd, true); err != nil {
+			syscall.Close(fd)
+			return nil, err
+		}
+
 		if err = connect(fd, remoteSockaddr, deadline); err != nil {
 			syscall.Close(fd)
 			continue // try again.
@@ -137,11 +143,6 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		break
 	}
 	if err != nil {
-		return nil, err
-	}
-
-	if err = syscall.SetNonblock(fd, true); err != nil {
-		syscall.Close(fd)
 		return nil, err
 	}
 
@@ -311,30 +312,57 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 
 // this is close to the connect() function inside stdlib/net
 func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
-
-	done := make(chan struct{}, 1)
-
-	if !deadline.IsZero() {
-		go func() {
-			timeout := deadline.Sub(time.Now())
-			select {
-			case <-done:
-			case <-time.After(timeout):
-				syscall.Close(fd) // unblock the connect.
-			}
-		}()
-	}
-
 	switch err := syscall.Connect(fd, ra); err {
+	case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
 	case nil, syscall.EISCONN:
-		done <- struct{}{}
 		if !deadline.IsZero() && deadline.Before(time.Now()) {
 			return errTimeout
 		}
 		return nil
 	default:
-		done <- struct{}{}
 		return err
+	}
+
+	var err error
+	var to *syscall.Timeval
+	var pw syscall.FdSet
+	FD_SET(uintptr(fd), &pw)
+	for {
+		// wait until the fd is ready to read or write.
+		if !deadline.IsZero() {
+			to2 := syscall.NsecToTimeval(deadline.Sub(time.Now()).Nanoseconds())
+			to = &to2
+		}
+
+		if _, err = Select(fd+1, nil, &pw, nil, to); err != nil {
+			fmt.Println(err)
+			return err
+		}
+
+		// if err := fd.pd.WaitWrite(); err != nil {
+		// 	return err
+		// }
+		// i'd use the above fd.pd.WaitWrite to poll io correctly, just like net sockets...
+		// but of course, it uses the damn runtime_* functions that _cannot_ be used by
+		// non-go-stdlib source... seriously guys, this is not nice.
+		// we're relegated to using syscall.Select (what nightmare that is) or using
+		// a simple but totally bogus time-based wait. such garbage.
+		var nerr int
+		nerr, err = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
+		if err != nil {
+			return err
+		}
+		switch err = syscall.Errno(nerr); err {
+		case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
+			continue
+		case syscall.Errno(0), syscall.EISCONN:
+			if !deadline.IsZero() && deadline.Before(time.Now()) {
+				return errTimeout
+			}
+			return nil
+		default:
+			return err
+		}
 	}
 }
 
