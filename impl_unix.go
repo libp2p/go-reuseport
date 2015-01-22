@@ -30,11 +30,10 @@ func socket(family, socktype, protocol int) (fd int, err error) {
 		return -1, err
 	}
 
-	// set non-blocking until after connect, because we cant poll using runtime :(
-	// if err = syscall.SetNonblock(fd, true); err != nil {
-	// 	syscall.Close(fd)
-	// 	return -1, err
-	// }
+	if err = syscall.SetNonblock(fd, true); err != nil {
+		syscall.Close(fd)
+		return -1, err
+	}
 
 	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, soReuseAddr, 1); err != nil {
 		syscall.Close(fd)
@@ -113,13 +112,12 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 	// look at dialTCP in http://golang.org/src/net/tcpsock_posix.go  .... !
 	// here we just try again 3 times.
 	for i := 0; i < 3; i++ {
-		if fd, err = socket(rfamily, socktype, rprotocol); err != nil {
-			return nil, err
+		if !deadline.IsZero() && deadline.Before(time.Now()) {
+			err = errTimeout
+			break
 		}
 
-		// we set the socket to be nonblocking, just like stdlib net
-		if err = syscall.SetNonblock(fd, true); err != nil {
-			syscall.Close(fd)
+		if fd, err = socket(rfamily, socktype, rprotocol); err != nil {
 			return nil, err
 		}
 
@@ -141,6 +139,11 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		return nil, err
 	}
 
+	if err = waitUntilAddrResolves(fd, deadline); err != nil {
+		syscall.Close(fd)
+		return nil, err
+	}
+
 	if rprotocol == syscall.IPPROTO_TCP {
 		//  by default golang/net sets TCP no delay to true.
 		if err = setNoDelay(fd, true); err != nil {
@@ -149,24 +152,11 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		}
 	}
 
-	switch socktype {
-	case syscall.SOCK_STREAM, syscall.SOCK_SEQPACKET:
-
-		// File Name get be nil
-		file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
-		if c, err = net.FileConn(file); err != nil {
-			syscall.Close(fd)
-			return nil, err
-		}
-
-	case syscall.SOCK_DGRAM:
-
-		// File Name get be nil
-		file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
-		if c, err = net.FileConn(file); err != nil {
-			syscall.Close(fd)
-			return nil, err
-		}
+	// File Name get be nil
+	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
+	if c, err = net.FileConn(file); err != nil {
+		syscall.Close(fd)
+		return nil, err
 	}
 
 	if err = file.Close(); err != nil {
@@ -175,6 +165,30 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 	}
 
 	return c, err
+}
+
+// there's a rare case where dial returns successfully but for some reason the
+// RemoteAddr is not yet set. We wait here a while until it is, and if too long
+// passes, we fail. This is horrendous. This shouldn't take more than a second.
+// See also:
+//  * https://gist.github.com/jbenet/5c191d698fe9ec58c49d
+//  * http://cr.yp.to/docs/connect.html
+func waitUntilAddrResolves(fd int, deadline time.Time) error {
+	now := time.Now()
+	if deadline.IsZero() || deadline.Sub(now) > time.Second {
+		deadline = now.Add(time.Second)
+	}
+
+	for deadline.After(time.Now()) {
+		rsa, err := syscall.Getpeername(fd)
+		if err != nil || rsa == nil {
+			time.Sleep(20 * time.Microsecond)
+			continue
+		}
+		return nil
+	}
+
+	return errTimeout
 }
 
 func listen(netw, addr string) (fd int, err error) {
@@ -216,11 +230,6 @@ func listen(netw, addr string) (fd int, err error) {
 			syscall.Close(fd)
 			return -1, err
 		}
-	}
-
-	if err = syscall.SetNonblock(fd, true); err != nil {
-		syscall.Close(fd)
-		return -1, err
 	}
 
 	return fd, nil
@@ -318,13 +327,12 @@ func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
 	}
 
 	var err error
-	var pr, pw syscall.FdSet
+	var pw syscall.FdSet
 	FD_SET(uintptr(fd), &pw)
-	FD_SET(uintptr(fd), &pr)
 	for {
 		// wait until the fd is ready to read or write.
 		to := syscall.NsecToTimeval(deadline.Sub(time.Now()).Nanoseconds())
-		syscall.Select(fd+1, &pr, &pw, nil, &to)
+		syscall.Select(fd+1, nil, &pw, nil, &to)
 
 		// if err := fd.pd.WaitWrite(); err != nil {
 		// 	return err

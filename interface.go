@@ -21,6 +21,7 @@ import (
 	"errors"
 	"net"
 	"syscall"
+	"time"
 )
 
 // Available returns whether or not SO_REUSEPORT is available in the OS.
@@ -94,9 +95,16 @@ func (d *Dialer) Dial(network, address string) (net.Conn, error) {
 		return nil, syscall.Errno(syscall.ENOPROTOOPT)
 	}
 
-	c, err := dial(d.D, network, address)
-	if err != nil {
-		return nil, err
+	return dial(d.D, network, address)
+}
+
+func (d *Dialer) deadline(def time.Duration) time.Time {
+	switch {
+	case !d.D.Deadline.IsZero():
+		return d.D.Deadline
+	case d.D.Timeout != 0:
+		return time.Now().Add(d.D.Timeout)
+	default:
+		return time.Now().Add(def)
 	}
-	return c, nil
 }

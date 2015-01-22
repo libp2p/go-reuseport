@@ -228,7 +228,7 @@ func TestStreamListenDialSamePort(t *testing.T) {
 
 		c1, err := Dial(network, l1.Addr().String(), l2.Addr().String())
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal(err, network, l1.Addr().String(), l2.Addr().String())
 			continue
 		}
 		defer c1.Close()
