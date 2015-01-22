@@ -30,10 +30,11 @@ func socket(family, socktype, protocol int) (fd int, err error) {
 		return -1, err
 	}
 
-	if err = syscall.SetNonblock(fd, true); err != nil {
-		syscall.Close(fd)
-		return -1, err
-	}
+	// cant set it until after connect
+	// if err = syscall.SetNonblock(fd, true); err != nil {
+	// 	syscall.Close(fd)
+	// 	return -1, err
+	// }
 
 	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, soReuseAddr, 1); err != nil {
 		syscall.Close(fd)
@@ -139,7 +140,7 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		return nil, err
 	}
 
-	if err = waitUntilAddrResolves(fd, deadline); err != nil {
+	if err = syscall.SetNonblock(fd, true); err != nil {
 		syscall.Close(fd)
 		return nil, err
 	}
@@ -164,31 +165,21 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		return nil, err
 	}
 
+	// c = wrapConnWithRemoteAddr(c, netAddr)
 	return c, err
 }
 
 // there's a rare case where dial returns successfully but for some reason the
-// RemoteAddr is not yet set. We wait here a while until it is, and if too long
-// passes, we fail. This is horrendous. This shouldn't take more than a second.
-// See also:
+// RemoteAddr is not yet set. So, since we know what raddr should be, we just
+// wrap it. This is not ideal in that sometimes getpeername() may return a
+// different addr. But until this is fixed, best way to do it.
 //  * https://gist.github.com/jbenet/5c191d698fe9ec58c49d
-//  * http://cr.yp.to/docs/connect.html
-func waitUntilAddrResolves(fd int, deadline time.Time) error {
-	now := time.Now()
-	if deadline.IsZero() || deadline.Sub(now) > time.Second {
-		deadline = now.Add(time.Second)
+//  * https://github.com/golang/go/issues/9661#issuecomment-71043147
+func wrapConnWithRemoteAddr(c net.Conn, raddr net.Addr) net.Conn {
+	if c.RemoteAddr() == nil {
+		return &conn{Conn: c, raddr: raddr}
 	}
-
-	for deadline.After(time.Now()) {
-		rsa, err := syscall.Getpeername(fd)
-		if err != nil || rsa == nil {
-			time.Sleep(20 * time.Microsecond)
-			continue
-		}
-		return nil
-	}
-
-	return errTimeout
+	return c // it's fine, no need to wrap.
 }
 
 func listen(netw, addr string) (fd int, err error) {
@@ -230,6 +221,11 @@ func listen(netw, addr string) (fd int, err error) {
 			syscall.Close(fd)
 			return -1, err
 		}
+	}
+
+	if err = syscall.SetNonblock(fd, true); err != nil {
+		syscall.Close(fd)
+		return -1, err
 	}
 
 	return fd, nil
@@ -315,49 +311,30 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 
 // this is close to the connect() function inside stdlib/net
 func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
+
+	done := make(chan struct{}, 1)
+
+	if !deadline.IsZero() {
+		go func() {
+			timeout := deadline.Sub(time.Now())
+			select {
+			case <-done:
+			case <-time.After(timeout):
+				syscall.Close(fd) // unblock the connect.
+			}
+		}()
+	}
+
 	switch err := syscall.Connect(fd, ra); err {
-	case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
 	case nil, syscall.EISCONN:
+		done <- struct{}{}
 		if !deadline.IsZero() && deadline.Before(time.Now()) {
 			return errTimeout
 		}
 		return nil
 	default:
+		done <- struct{}{}
 		return err
-	}
-
-	var err error
-	var pw syscall.FdSet
-	FD_SET(uintptr(fd), &pw)
-	for {
-		// wait until the fd is ready to read or write.
-		to := syscall.NsecToTimeval(deadline.Sub(time.Now()).Nanoseconds())
-		syscall.Select(fd+1, nil, &pw, nil, &to)
-
-		// if err := fd.pd.WaitWrite(); err != nil {
-		// 	return err
-		// }
-		// i'd use the above fd.pd.WaitWrite to poll io correctly, just like net sockets...
-		// but of course, it uses the damn runtime_* functions that _cannot_ be used by
-		// non-go-stdlib source... seriously guys, this is not nice.
-		// we're relegated to using syscall.Select (what nightmare that is) or using
-		// a simple but totally bogus time-based wait. such garbage.
-		var nerr int
-		nerr, err = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
-		if err != nil {
-			return err
-		}
-		switch err = syscall.Errno(nerr); err {
-		case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
-			continue
-		case syscall.Errno(0), syscall.EISCONN:
-			if !deadline.IsZero() && deadline.Before(time.Now()) {
-				return errTimeout
-			}
-			return nil
-		default:
-			return err
-		}
 	}
 }
 
