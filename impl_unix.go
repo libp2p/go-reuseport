@@ -329,8 +329,8 @@ func connect(fd int, ra syscall.Sockaddr) error {
 		// 	return err
 		// }
 		// i'd use the above fd.pd.WaitWrite to poll io correctly, just like net sockets...
-		// but of course, it uses fucking runtime_* functions that _cannot_ be used by
-		// non-go-stdlib source... seriously guys, what kind of bullshit is that!?
+		// but of course, it uses the damn runtime_* functions that _cannot_ be used by
+		// non-go-stdlib source... seriously guys, this is not nice.
 		// we're relegated to using syscall.Select (what nightmare that is) or using
 		// a simple but totally bogus time-based wait. garbage.
 		var nerr int
