@@ -37,13 +37,11 @@ func socket(family, socktype, protocol int) (fd int, err error) {
 	// }
 
 	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, soReuseAddr, 1); err != nil {
-		// fmt.Println("reuse addr failed")
 		syscall.Close(fd)
 		return -1, err
 	}
 
 	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, soReusePort, 1); err != nil {
-		// fmt.Println("reuse port failed")
 		syscall.Close(fd)
 		return -1, err
 	}
@@ -51,7 +49,6 @@ func socket(family, socktype, protocol int) (fd int, err error) {
 	// set setLinger to 5 as reusing exact same (srcip:srcport, dstip:dstport)
 	// will otherwise fail on connect.
 	if err = setLinger(fd, 5); err != nil {
-		// fmt.Println("linger failed")
 		syscall.Close(fd)
 		return -1, err
 	}
@@ -74,7 +71,6 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 
 	netAddr, err := ResolveAddr(netw, addr)
 	if err != nil {
-		// fmt.Println("resolve addr failed")
 		return nil, err
 	}
 
@@ -120,7 +116,6 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		}
 		if err = connect(fd, remoteSockaddr); err != nil {
 			syscall.Close(fd)
-			// fmt.Println("connect failed", localSockaddr, err)
 			continue // try again.
 		}
 
@@ -133,7 +128,6 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 	if rprotocol == syscall.IPPROTO_TCP {
 		//  by default golang/net sets TCP no delay to true.
 		if err = setNoDelay(fd, true); err != nil {
-			// fmt.Println("set no delay failed")
 			syscall.Close(fd)
 			return nil, err
 		}
@@ -150,7 +144,6 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		// File Name get be nil
 		file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
 		if c, err = net.FileConn(file); err != nil {
-			// fmt.Println("fileconn failed")
 			syscall.Close(fd)
 			return nil, err
 		}
@@ -160,14 +153,12 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		// File Name get be nil
 		file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
 		if c, err = net.FileConn(file); err != nil {
-			// fmt.Println("fileconn failed")
 			syscall.Close(fd)
 			return nil, err
 		}
 	}
 
 	if err = file.Close(); err != nil {
-		// fmt.Println("file close failed")
 		syscall.Close(fd)
 		return nil, err
 	}
@@ -185,7 +176,6 @@ func listen(netw, addr string) (fd int, err error) {
 
 	netAddr, err := ResolveAddr(netw, addr)
 	if err != nil {
-		// fmt.Println("resolve addr failed")
 		return -1, err
 	}
 
@@ -205,7 +195,6 @@ func listen(netw, addr string) (fd int, err error) {
 	}
 
 	if err = syscall.Bind(fd, sockaddr); err != nil {
-		// fmt.Println("bind failed")
 		syscall.Close(fd)
 		return -1, err
 	}
@@ -213,7 +202,6 @@ func listen(netw, addr string) (fd int, err error) {
 	if protocol == syscall.IPPROTO_TCP {
 		//  by default golang/net sets TCP no delay to true.
 		if err = setNoDelay(fd, true); err != nil {
-			// fmt.Println("set no delay failed")
 			syscall.Close(fd)
 			return -1, err
 		}
@@ -239,20 +227,17 @@ func listenStream(netw, addr string) (l net.Listener, err error) {
 
 	// Set backlog size to the maximum
 	if err = syscall.Listen(fd, syscall.SOMAXCONN); err != nil {
-		// fmt.Println("listen failed")
 		syscall.Close(fd)
 		return nil, err
 	}
 
 	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
 	if l, err = net.FileListener(file); err != nil {
-		// fmt.Println("filelistener failed")
 		syscall.Close(fd)
 		return nil, err
 	}
 
 	if err = file.Close(); err != nil {
-		// fmt.Println("file close failed")
 		syscall.Close(fd)
 		return nil, err
 	}
@@ -272,13 +257,11 @@ func listenPacket(netw, addr string) (p net.PacketConn, err error) {
 
 	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
 	if p, err = net.FilePacketConn(file); err != nil {
-		// fmt.Println("filelistener failed")
 		syscall.Close(fd)
 		return nil, err
 	}
 
 	if err = file.Close(); err != nil {
-		// fmt.Println("file close failed")
 		syscall.Close(fd)
 		return nil, err
 	}
@@ -298,13 +281,11 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 
 	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
 	if c, err = net.FileConn(file); err != nil {
-		// fmt.Println("filelistener failed")
 		syscall.Close(fd)
 		return nil, err
 	}
 
 	if err = file.Close(); err != nil {
-		// fmt.Println("file close failed")
 		syscall.Close(fd)
 		return nil, err
 	}
