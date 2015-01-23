@@ -3,10 +3,12 @@ package reuseport
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -259,6 +261,108 @@ func TestStreamListenDialSamePort(t *testing.T) {
 		}
 		t.Log("echoed", string(hello2))
 		c1.Close()
+	}
+}
+
+func TestStreamListenDialSamePortStressManyMsgs(t *testing.T) {
+	testCases := [][]string{
+		[]string{"tcp", "127.0.0.1:0"},
+		[]string{"tcp4", "127.0.0.1:0"},
+		[]string{"tcp6", "[::]:0"},
+	}
+
+	for _, tcase := range testCases {
+		subestStreamListenDialSamePortStress(t, tcase[0], tcase[1], 2, 100)
+	}
+}
+
+func TestStreamListenDialSamePortStressManyNodes(t *testing.T) {
+	testCases := [][]string{
+		[]string{"tcp", "127.0.0.1:0"},
+		[]string{"tcp4", "127.0.0.1:0"},
+		[]string{"tcp6", "[::]:0"},
+	}
+
+	for _, tcase := range testCases {
+		subestStreamListenDialSamePortStress(t, tcase[0], tcase[1], 100, 1)
+	}
+}
+
+func subestStreamListenDialSamePortStress(t *testing.T, network, addr string, nodes int, msgs int) {
+	t.Logf("testing %s:%s %d nodes %d msgs", network, addr, nodes, msgs)
+
+	var ls []net.Listener
+	for i := 0; i < nodes; i++ {
+		l, err := Listen(network, addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer l.Close()
+		go acceptAndEcho(l)
+		ls = append(ls, l)
+		t.Logf("listening %s", l.Addr())
+	}
+
+	// connect them all
+	var cs []net.Conn
+	for i := 0; i < nodes; i++ {
+		for j := 0; j < i; j++ {
+			if i == j {
+				continue // cannot do self.
+			}
+
+			ia := ls[i].Addr().String()
+			ja := ls[j].Addr().String()
+			c, err := Dial(network, ia, ja)
+			if err != nil {
+				t.Fatal(network, ia, ja, err)
+			}
+			defer c.Close()
+			cs = append(cs, c)
+			t.Logf("dialed %s --> %s", c.LocalAddr(), c.RemoteAddr())
+		}
+	}
+
+	errs := make(chan error)
+
+	send := func(c net.Conn, buf []byte) {
+		if _, err := c.Write(buf); err != nil {
+			errs <- err
+		}
+	}
+
+	recv := func(c net.Conn, buf []byte) {
+		buf2 := make([]byte, len(buf))
+		if _, err := c.Read(buf2); err != nil {
+			errs <- err
+		}
+		if !bytes.Equal(buf, buf2) {
+			errs <- fmt.Errorf("recv failure: %s <--> %s -- %s %s", c.RemoteAddr(), c.LocalAddr(), buf, buf2)
+		}
+	}
+
+	t.Logf("sending %d msgs per conn", msgs)
+	go func() {
+		var wg sync.WaitGroup
+		for _, c := range cs {
+			wg.Add(1)
+			go func(c net.Conn) {
+				defer wg.Done()
+				for i := 0; i < msgs; i++ {
+					msg := []byte(fmt.Sprintf("message %d", i))
+					send(c, msg)
+					recv(c, msg)
+				}
+			}(c)
+		}
+		wg.Wait()
+		close(errs)
+	}()
+
+	for err := range errs {
+		if err != nil {
+			t.Error(err)
+		}
 	}
 }
 

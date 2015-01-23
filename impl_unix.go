@@ -3,7 +3,6 @@
 package reuseport
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	sockaddrnet "github.com/jbenet/go-sockaddr/net"
+	goselect "github.com/jbenet/goselect"
 )
 
 const (
@@ -324,18 +324,18 @@ func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
 	}
 
 	var err error
-	var to *syscall.Timeval
-	var pw syscall.FdSet
-	FD_SET(uintptr(fd), &pw)
+	var timeout time.Duration
+	var pw goselect.FDSet
+	pw.Set(uintptr(fd))
 	for {
 		// wait until the fd is ready to read or write.
 		if !deadline.IsZero() {
-			to2 := syscall.NsecToTimeval(deadline.Sub(time.Now()).Nanoseconds())
-			to = &to2
+			timeout = deadline.Sub(time.Now())
+		} else {
+			timeout = -1
 		}
 
-		if _, err = Select(fd+1, nil, &pw, nil, to); err != nil {
-			fmt.Println(err)
+		if err = goselect.Select(fd+1, nil, &pw, nil, timeout); err != nil {
 			return err
 		}
 
@@ -373,8 +373,3 @@ type timeoutError struct{}
 func (e *timeoutError) Error() string   { return "i/o timeout" }
 func (e *timeoutError) Timeout() bool   { return true }
 func (e *timeoutError) Temporary() bool { return true }
-
-func FD_SET(fd uintptr, p *syscall.FdSet) {
-	n, k := fd/32, fd%32
-	p.Bits[n] |= (1 << uint32(k))
-}
