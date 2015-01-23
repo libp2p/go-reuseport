@@ -510,7 +510,7 @@ func TestDialRespectsTimeout(t *testing.T) {
 
 	ErrDrain:
 		select {
-		case <-time.After(3 * time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatal("took too long")
 		case err, more := <-errs:
 			if !more {
