@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	poll "github.com/jbenet/go-reuseport/poll"
 	sockaddrnet "github.com/jbenet/go-sockaddr/net"
-	goselect "github.com/jbenet/goselect"
 )
 
 const (
@@ -323,19 +323,13 @@ func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
 		return err
 	}
 
-	var err error
-	var timeout time.Duration
-	var pw goselect.FDSet
-	pw.Set(uintptr(fd))
-	for {
-		// wait until the fd is ready to read or write.
-		if !deadline.IsZero() {
-			timeout = deadline.Sub(time.Now())
-		} else {
-			timeout = -1
-		}
+	poller, err := poll.New(fd)
+	if err != nil {
+		return err
+	}
 
-		if err = goselect.Select(fd+1, nil, &pw, nil, timeout); err != nil {
+	for {
+		if err = poller.WaitWrite(deadline); err != nil {
 			return err
 		}
 

@@ -272,7 +272,7 @@ func TestStreamListenDialSamePortStressManyMsgs(t *testing.T) {
 	}
 
 	for _, tcase := range testCases {
-		subestStreamListenDialSamePortStress(t, tcase[0], tcase[1], 2, 100)
+		subestStreamListenDialSamePortStress(t, tcase[0], tcase[1], 2, 1000)
 	}
 }
 
@@ -284,7 +284,19 @@ func TestStreamListenDialSamePortStressManyNodes(t *testing.T) {
 	}
 
 	for _, tcase := range testCases {
-		subestStreamListenDialSamePortStress(t, tcase[0], tcase[1], 100, 1)
+		subestStreamListenDialSamePortStress(t, tcase[0], tcase[1], 50, 1)
+	}
+}
+
+func TestStreamListenDialSamePortStressManyMsgsManyNodes(t *testing.T) {
+	testCases := [][]string{
+		[]string{"tcp", "127.0.0.1:0"},
+		[]string{"tcp4", "127.0.0.1:0"},
+		[]string{"tcp6", "[::]:0"},
+	}
+
+	for _, tcase := range testCases {
+		subestStreamListenDialSamePortStress(t, tcase[0], tcase[1], 50, 100)
 	}
 }
 
