@@ -106,7 +106,7 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		// check family and protocols match.
 		lfamily = sockaddrnet.NetAddrAF(dialer.LocalAddr)
 		lprotocol = sockaddrnet.NetAddrIPPROTO(dialer.LocalAddr)
-		if lfamily != rfamily && lprotocol != rfamily {
+		if lfamily != rfamily || lprotocol != rprotocol {
 			return nil, &net.AddrError{Err: "unexpected address type", Addr: netAddr.String()}
 		}
 	}
