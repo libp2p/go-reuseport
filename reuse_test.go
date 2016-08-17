@@ -454,6 +454,10 @@ func TestPacketListenDialSamePort(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			if err := c1.SetReadDeadline(time.Now().Add(time.Second * 2)); err != nil {
+				t.Fatal(err)
+			}
+
 			if _, err := c1.Read(hello2); err != nil {
 				t.Fatal(err)
 			}
