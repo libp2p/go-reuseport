@@ -90,6 +90,11 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 		deadline = time.Now().Add(dialer.Timeout)
 	}
 
+	ctxdeadline, ok := ctx.Deadline()
+	if ok && ctxdeadline.Before(deadline) {
+		deadline = ctxdeadline
+	}
+
 	localSockaddr = sockaddrnet.NetAddrToSockaddr(dialer.LocalAddr)
 	remoteSockaddr = sockaddrnet.NetAddrToSockaddr(netAddr)
 
@@ -138,6 +143,11 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 
 		if err = connect(ctx, fd, remoteSockaddr, deadline); err != nil {
 			syscall.Close(fd)
+			select {
+			case <-ctx.Done():
+				return nil, err
+			default:
+			}
 			continue // try again.
 		}
 
