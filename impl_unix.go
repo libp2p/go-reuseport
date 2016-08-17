@@ -3,6 +3,7 @@
 package reuseport
 
 import (
+	"context"
 	"net"
 	"os"
 	"strconv"
@@ -57,7 +58,7 @@ func socket(family, socktype, protocol int) (fd int, err error) {
 	return fd, nil
 }
 
-func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
+func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 	var (
 		fd             int
 		lfamily        int
@@ -135,7 +136,7 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 			return nil, err
 		}
 
-		if err = connect(fd, remoteSockaddr, deadline); err != nil {
+		if err = connect(ctx, fd, remoteSockaddr, deadline); err != nil {
 			syscall.Close(fd)
 			continue // try again.
 		}
@@ -301,7 +302,10 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 }
 
 // this is close to the connect() function inside stdlib/net
-func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
+func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Time) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	switch err := syscall.Connect(fd, ra); err {
 	case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
 	case nil, syscall.EISCONN:
@@ -318,6 +322,17 @@ func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
 		return err
 	}
 	defer poller.Close()
+
+	success := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		select {
+		case <-success:
+			return
+		default:
+			poller.Close()
+		}
+	}()
 
 	for {
 		if err = poller.WaitWrite(deadline); err != nil {
@@ -344,6 +359,7 @@ func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
 			if !deadline.IsZero() && deadline.Before(time.Now()) {
 				return errTimeout
 			}
+			close(success)
 			return nil
 		default:
 			return err
