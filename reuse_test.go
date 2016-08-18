@@ -387,6 +387,7 @@ func subestStreamListenDialSamePortStress(t *testing.T, network, addr string, no
 }
 
 func TestPacketListenDialSamePort(t *testing.T) {
+	t.Skip("these don't pass reliably.")
 
 	any := [][]string{
 		[]string{"udp", "0.0.0.0:0", "0.0.0.0:0"},
@@ -411,7 +412,6 @@ func TestPacketListenDialSamePort(t *testing.T) {
 
 	for _, tcase := range testCases {
 		t.Run(tcase[0]+"/"+tcase[1], func(t *testing.T) {
-			t.Log("testing", tcase)
 			network := tcase[0]
 			addr1 := tcase[1]
 			addr2 := tcase[2]
