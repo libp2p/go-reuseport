@@ -313,8 +313,12 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 
 // this is close to the connect() function inside stdlib/net
 func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Time) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	// NOTE: We currently only use the context to pass in a deadline.
+	// Canceling an epoll_wait call is hard.
+	ctxdeadline, ok := ctx.Deadline()
+	if ok && ctxdeadline.Before(deadline) {
+		deadline = ctxdeadline
+	}
 
 	switch err := syscall.Connect(fd, ra); err {
 	case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
@@ -332,17 +336,6 @@ func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Tim
 		return err
 	}
 	defer poller.Close()
-
-	success := make(chan struct{})
-	go func() {
-		<-ctx.Done()
-		select {
-		case <-success:
-			return
-		default:
-			poller.Close()
-		}
-	}()
 
 	for {
 		if err = poller.WaitWrite(deadline); err != nil {
@@ -369,7 +362,6 @@ func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Tim
 			if !deadline.IsZero() && deadline.Before(time.Now()) {
 				return errTimeout
 			}
-			close(success)
 			return nil
 		default:
 			return err
