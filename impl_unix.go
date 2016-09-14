@@ -143,10 +143,8 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 
 		if err = connect(ctx, fd, remoteSockaddr, deadline); err != nil {
 			syscall.Close(fd)
-			select {
-			case <-ctx.Done():
-				return nil, err
-			default:
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
 			}
 			continue // try again.
 		}
@@ -313,12 +311,7 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 
 // this is close to the connect() function inside stdlib/net
 func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Time) error {
-	// NOTE: We currently only use the context to pass in a deadline.
-	// Canceling an epoll_wait call is hard.
-	ctxdeadline, ok := ctx.Deadline()
-	if ok && ctxdeadline.Before(deadline) {
-		deadline = ctxdeadline
-	}
+	ctx, _ = context.WithDeadline(ctx, deadline)
 
 	switch err := syscall.Connect(fd, ra); err {
 	case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
@@ -338,7 +331,7 @@ func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Tim
 	defer poller.Close()
 
 	for {
-		if err = poller.WaitWrite(deadline); err != nil {
+		if err = poller.WaitWriteCtx(ctx); err != nil {
 			return err
 		}
 
