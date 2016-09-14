@@ -303,13 +303,12 @@ func TestStreamListenDialSamePortStressManyMsgsManyNodes(t *testing.T) {
 	}
 	for _, tcase := range testCases {
 		t.Run(tcase[0], func(t *testing.T) {
-			subestStreamListenDialSamePortStress(t, tcase[0], tcase[1], 50, 100)
+			subestStreamListenDialSamePortStress(t, tcase[0], tcase[1], 50, 50)
 		})
 	}
 }
 
 func subestStreamListenDialSamePortStress(t *testing.T, network, addr string, nodes int, msgs int) {
-	t.Logf("testing %s:%s %d nodes %d msgs", network, addr, nodes, msgs)
 
 	var ls []net.Listener
 	for i := 0; i < nodes; i++ {
@@ -320,7 +319,6 @@ func subestStreamListenDialSamePortStress(t *testing.T, network, addr string, no
 		defer l.Close()
 		go acceptAndEcho(l)
 		ls = append(ls, l)
-		t.Logf("listening %s", l.Addr())
 	}
 
 	// connect them all
@@ -339,7 +337,6 @@ func subestStreamListenDialSamePortStress(t *testing.T, network, addr string, no
 			}
 			defer c.Close()
 			cs = append(cs, c)
-			t.Logf("dialed %s --> %s", c.LocalAddr(), c.RemoteAddr())
 		}
 	}
 
