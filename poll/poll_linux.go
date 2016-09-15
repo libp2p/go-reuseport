@@ -7,7 +7,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/sahne/eventfd"
+	"github.com/gxed/eventfd"
 )
 
 type Poller struct {
@@ -33,9 +33,7 @@ func New(fd int) (p *Poller, err error) {
 		syscall.Close(p.epfd)
 		return nil, err
 	}
-	p.wakeMutex.Lock()
 	p.wake = wake
-	p.wakeMutex.Unlock()
 
 	p.eventMain.Events = syscall.EPOLLOUT
 	p.eventMain.Fd = int32(fd)
@@ -90,7 +88,7 @@ func (p *Poller) WaitWriteCtx(ctx context.Context) error {
 			default:
 			}
 			p.wakeMutex.Lock()
-			p.wake.Write([]byte{0, 0, 0, 0, 0, 0, 0, 1}) // send event to wake up epoll
+			p.wake.WriteEvents(1) // send event to wake up epoll
 			p.wakeMutex.Unlock()
 			return
 		}
@@ -109,7 +107,7 @@ func (p *Poller) WaitWriteCtx(ctx context.Context) error {
 		}
 		if ev.Fd == p.eventWait.Fd {
 			p.wakeMutex.Lock()
-			p.wake.Read(make([]byte, 8)) // clear eventfd
+			p.wake.ReadEvents() // clear eventfd
 			p.wakeMutex.Unlock()
 		}
 	}

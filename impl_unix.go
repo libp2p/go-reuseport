@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	poll "github.com/jbenet/go-reuseport/poll"
+	"github.com/jbenet/go-reuseport/singlepoll"
 	sockaddrnet "github.com/jbenet/go-sockaddr/net"
 )
 
@@ -311,7 +311,9 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 
 // this is close to the connect() function inside stdlib/net
 func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Time) error {
-	ctx, _ = context.WithDeadline(ctx, deadline)
+	if !deadline.IsZero() {
+		ctx, _ = context.WithDeadline(ctx, deadline)
+	}
 
 	switch err := syscall.Connect(fd, ra); err {
 	case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
@@ -319,19 +321,16 @@ func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Tim
 		if !deadline.IsZero() && deadline.Before(time.Now()) {
 			return errTimeout
 		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return nil
 	default:
 		return err
 	}
 
-	poller, err := poll.New(fd)
-	if err != nil {
-		return err
-	}
-	defer poller.Close()
-
 	for {
-		if err = poller.WaitWriteCtx(ctx); err != nil {
+		if err := singlepoll.PollPark(ctx, fd, "w"); err != nil {
 			return err
 		}
 
@@ -344,6 +343,7 @@ func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Tim
 		// we're relegated to using syscall.Select (what nightmare that is) or using
 		// a simple but totally bogus time-based wait. such garbage.
 		var nerr int
+		var err error
 		nerr, err = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
 		if err != nil {
 			return err
