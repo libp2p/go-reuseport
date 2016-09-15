@@ -9,6 +9,7 @@ import (
 	"sync"
 	"syscall"
 
+	logging "github.com/ipfs/go-log"
 	"github.com/sahne/eventfd"
 )
 
@@ -19,6 +20,7 @@ var (
 var (
 	initOnce sync.Once
 	workChan chan interface{}
+	log      logging.EventLogger = logging.Logger("reuseport-poll")
 )
 
 type addPoll struct {
@@ -32,7 +34,7 @@ type ctxDone struct {
 	fd int
 }
 
-func PollPark(ctx context.Context, fd int, mode string) error {
+func PollPark(reqctx context.Context, fd int, mode string) error {
 	initOnce.Do(func() {
 		workChan = make(chan interface{}, 128)
 		go worker()
@@ -55,20 +57,41 @@ func PollPark(ctx context.Context, fd int, mode string) error {
 	workChan <- addPoll{
 		fd:     fd,
 		events: events,
-		ctx:    ctx,
+		ctx:    reqctx,
 		wakeUp: wakeUp,
 	}
 
 	return <-wakeUp
 }
 
-func worker() {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
+func criticalError(msg string, err error) {
+	log.Errorf("%s: %s.", msg, err.Error())
+	log.Errorf("This is critical error, please report it at https://github.com/jbenet/go-reuseport/issues/new")
+	log.Errorf("Bailing out. You are on your own. Good luck.")
 
+	for {
+		select {
+		case <-backgroundctx.Done():
+			return
+		case unit := <-workChan:
+			switch u := unit.(type) {
+			case addPoll:
+				u.wakeUp <- err
+			default:
+			}
+		}
+	}
+}
+
+func worker() {
 	epfd, err := syscall.EpollCreate1(0)
+	if err != nil {
+		criticalError("EpollCreate1(0) failed", err)
+	}
 	evfd, err := eventfd.New()
-	_ = err
+	if err != nil {
+		criticalError("eventfd.New() failed", err)
+	}
 
 	pool := make(map[int]addPoll)
 
@@ -93,7 +116,7 @@ func worker() {
 	}
 	for {
 		select {
-		case <-ctx.Done():
+		case <-backgroundctx.Done():
 			evfd.WriteEvents(1)
 			return
 		case unit := <-workChan:
