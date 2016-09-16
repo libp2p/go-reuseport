@@ -9,8 +9,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/gxed/eventfd"
 	logging "github.com/ipfs/go-log"
-	"github.com/sahne/eventfd"
 )
 
 var (
