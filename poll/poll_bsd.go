@@ -3,6 +3,7 @@
 package poll
 
 import (
+	"context"
 	"syscall"
 	"time"
 )
@@ -35,7 +36,8 @@ func (p *Poller) Close() error {
 	return syscall.Close(p.kqfd)
 }
 
-func (p *Poller) WaitWrite(deadline time.Time) error {
+func (p *Poller) WaitWriteCtx(ctx context.Context) error {
+	deadline, _ := ctx.Deadline()
 
 	// setup timeout
 	var timeout *syscall.Timespec

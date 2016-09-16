@@ -18,6 +18,7 @@
 package reuseport
 
 import (
+	"context"
 	"errors"
 	"net"
 	"syscall"
@@ -91,11 +92,15 @@ type Dialer struct {
 // Returns a net.Conn created from a file discriptor for a socket
 // with SO_REUSEPORT and SO_REUSEADDR option set.
 func (d *Dialer) Dial(network, address string) (net.Conn, error) {
+	return d.DialContext(context.Background(), network, address)
+}
+
+func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	if !available() {
 		return nil, syscall.Errno(syscall.ENOPROTOOPT)
 	}
 
-	return dial(d.D, network, address)
+	return dial(ctx, d.D, network, address)
 }
 
 func (d *Dialer) deadline(def time.Duration) time.Time {
