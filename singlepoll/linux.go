@@ -132,6 +132,9 @@ func worker() {
 				wakeUp := u.wakeUp
 				u.wakeUp = wrapWakeUp
 
+				if _, ok := pool[u.fd]; ok {
+					panic("duplicate fd") // safe guard against bad close calls
+				}
 				pool[u.fd] = u
 
 				err := syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, u.fd, &event)
@@ -152,6 +155,7 @@ func worker() {
 						workChan <- ctxDone{
 							fd: fd,
 						}
+						<-wrapWakeUp
 						wakeUp <- reqCtx.Err()
 					}
 				}()
