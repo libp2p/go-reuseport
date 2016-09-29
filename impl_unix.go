@@ -163,14 +163,15 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 		}
 	}
 
+	// NOTE:XXX: never call syscall.Close on fd after os.NewFile
 	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
+	fd = -1 // so we don't touch it, we handled the control to Golang with NewFile
 	if c, err = net.FileConn(file); err != nil {
-		syscall.Close(fd)
+		_ = file.Close() // shouldn't error either way
 		return nil, err
 	}
 
 	if err = file.Close(); err != nil {
-		syscall.Close(fd)
 		c.Close()
 		return nil, err
 	}
