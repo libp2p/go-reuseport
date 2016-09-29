@@ -163,7 +163,6 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 		}
 	}
 
-	// File Name get be nil
 	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
 	if c, err = net.FileConn(file); err != nil {
 		syscall.Close(fd)
