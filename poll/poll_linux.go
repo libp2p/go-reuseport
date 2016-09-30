@@ -112,9 +112,14 @@ func (p *Poller) WaitWriteCtx(ctx context.Context) error {
 			p.wakeMutex.Lock()
 			p.wake.ReadEvents() // clear eventfd
 			p.wakeMutex.Unlock()
+		default:
+			// shouldn't happen as epoll should onlt return events we registered
 		}
 	}
 	if good {
+		// in case both eventMain and eventWait are lit, we got with eventMain
+		// as it is the success condition here and if both of them are returned
+		// at the same time it means that socket connected right as context timed out
 		return nil
 	}
 	if ctx.Err() == nil {
