@@ -312,7 +312,9 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 // this is close to the connect() function inside stdlib/net
 func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Time) error {
 	if !deadline.IsZero() {
-		ctx, _ = context.WithDeadline(ctx, deadline)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
 	}
 
 	switch err := syscall.Connect(fd, ra); err {
@@ -342,9 +344,7 @@ func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Tim
 		// non-go-stdlib source... seriously guys, this is not nice.
 		// we're relegated to using syscall.Select (what nightmare that is) or using
 		// a simple but totally bogus time-based wait. such garbage.
-		var nerr int
-		var err error
-		nerr, err = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
+		nerr, err := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
 		if err != nil {
 			return err
 		}

@@ -5,7 +5,6 @@ package singlepoll
 import (
 	"context"
 	"errors"
-	"runtime"
 	"sync"
 	"syscall"
 
@@ -50,7 +49,6 @@ func PollPark(reqctx context.Context, fd int, mode string) error {
 		default:
 			return ErrUnsupportedMode
 		}
-
 	}
 
 	wakeUp := make(chan error)
@@ -101,7 +99,6 @@ func worker() {
 			Fd:     int32(evfd.Fd()),
 		}
 		syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, evfd.Fd(), &event)
-		runtime.KeepAlive(event) // won't hurt but might fix some possible issues with GC
 	}
 	go poller(epfd, evfd)
 
@@ -175,6 +172,9 @@ func worker() {
 func poller(epfd int, evfd *eventfd.EventFD) {
 	for {
 		// do not reuse the array as we will be passing it over channel
+		// 128 is quite arbitrary
+		// to small and number of EpollWait calls would increase
+		// to big and GC overhead increases
 		events := make([]syscall.EpollEvent, 128)
 		n, err := syscall.EpollWait(epfd, events, -1)
 		if err != nil {

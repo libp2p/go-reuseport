@@ -58,7 +58,7 @@ func (p *Poller) Close() error {
 	p.wakeMutex.Lock()
 	err1 := p.wake.Close()
 	// set wake to nil to be sure that we won't call write on closed wake
-	// it should naver happen but if semeone changes something this might show a bug
+	// it should never happen but if someone changes something this might show a bug
 	p.wake = nil
 	p.wakeMutex.Unlock()
 
@@ -88,7 +88,10 @@ func (p *Poller) WaitWriteCtx(ctx context.Context) error {
 			default:
 			}
 			p.wakeMutex.Lock()
-			p.wake.WriteEvents(1) // send event to wake up epoll
+			if p.wake != nil {
+				p.wake.WriteEvents(1) // send event to wake up epoll
+			}
+			// if it is nil then we already closed
 			p.wakeMutex.Unlock()
 			return
 		}
@@ -102,10 +105,10 @@ func (p *Poller) WaitWriteCtx(ctx context.Context) error {
 	good := false
 	for i := 0; i < n; i++ {
 		ev := p.events[i]
-		if ev.Fd == p.eventMain.Fd {
+		switch ev.Fd {
+		case p.eventMain.Fd:
 			good = true
-		}
-		if ev.Fd == p.eventWait.Fd {
+		case p.eventWait.Fd:
 			p.wakeMutex.Lock()
 			p.wake.ReadEvents() // clear eventfd
 			p.wakeMutex.Unlock()
@@ -115,6 +118,8 @@ func (p *Poller) WaitWriteCtx(ctx context.Context) error {
 		return nil
 	}
 	if ctx.Err() == nil {
+		// notification is sent by other goroutine when context deadline was reached
+		// if we are here it means that we got notification buy the deadline wasn't reached
 		panic("notification but no deadline, this should be impossible")
 	}
 	return ctx.Err()
