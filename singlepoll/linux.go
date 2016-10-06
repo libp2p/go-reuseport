@@ -177,7 +177,15 @@ func poller(epfd int, evfd *eventfd.EventFD) {
 		// to big and GC overhead increases
 		events := make([]syscall.EpollEvent, 128)
 		n, err := syscall.EpollWait(epfd, events, -1)
-		if err != nil {
+
+		switch err {
+		case nil:
+			// everything is great
+		case syscall.EINTR:
+			// ignore
+			continue
+		default:
+			// log
 			log.Errorf("EpollWait returned error: %s. Continuing.", err.Error())
 			continue
 		}
