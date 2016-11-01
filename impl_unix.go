@@ -3,13 +3,14 @@
 package reuseport
 
 import (
+	"context"
 	"net"
 	"os"
 	"strconv"
 	"syscall"
 	"time"
 
-	poll "github.com/jbenet/go-reuseport/poll"
+	"github.com/jbenet/go-reuseport/singlepoll"
 	sockaddrnet "github.com/jbenet/go-sockaddr/net"
 )
 
@@ -57,7 +58,7 @@ func socket(family, socktype, protocol int) (fd int, err error) {
 	return fd, nil
 }
 
-func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
+func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 	var (
 		fd             int
 		lfamily        int
@@ -87,6 +88,11 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		deadline = dialer.Deadline
 	case dialer.Timeout != 0:
 		deadline = time.Now().Add(dialer.Timeout)
+	}
+
+	ctxdeadline, ok := ctx.Deadline()
+	if ok && ctxdeadline.Before(deadline) {
+		deadline = ctxdeadline
 	}
 
 	localSockaddr = sockaddrnet.NetAddrToSockaddr(dialer.LocalAddr)
@@ -135,8 +141,11 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 			return nil, err
 		}
 
-		if err = connect(fd, remoteSockaddr, deadline); err != nil {
+		if err = connect(ctx, fd, remoteSockaddr, deadline); err != nil {
 			syscall.Close(fd)
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			continue // try again.
 		}
 
@@ -154,15 +163,15 @@ func dial(dialer net.Dialer, netw, addr string) (c net.Conn, err error) {
 		}
 	}
 
-	// File Name get be nil
+	// NOTE:XXX: never call syscall.Close on fd after os.NewFile
 	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
+	fd = -1 // so we don't touch it, we handled the control to Golang with NewFile
 	if c, err = net.FileConn(file); err != nil {
-		syscall.Close(fd)
+		_ = file.Close() // shouldn't error either way
 		return nil, err
 	}
 
 	if err = file.Close(); err != nil {
-		syscall.Close(fd)
 		c.Close()
 		return nil, err
 	}
@@ -301,26 +310,29 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 }
 
 // this is close to the connect() function inside stdlib/net
-func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
+func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Time) error {
+	if !deadline.IsZero() {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
+
 	switch err := syscall.Connect(fd, ra); err {
 	case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
 	case nil, syscall.EISCONN:
 		if !deadline.IsZero() && deadline.Before(time.Now()) {
 			return errTimeout
 		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return nil
 	default:
 		return err
 	}
 
-	poller, err := poll.New(fd)
-	if err != nil {
-		return err
-	}
-	defer poller.Close()
-
 	for {
-		if err = poller.WaitWrite(deadline); err != nil {
+		if err := singlepoll.PollPark(ctx, fd, "w"); err != nil {
 			return err
 		}
 
@@ -332,8 +344,7 @@ func connect(fd int, ra syscall.Sockaddr, deadline time.Time) error {
 		// non-go-stdlib source... seriously guys, this is not nice.
 		// we're relegated to using syscall.Select (what nightmare that is) or using
 		// a simple but totally bogus time-based wait. such garbage.
-		var nerr int
-		nerr, err = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
+		nerr, err := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
 		if err != nil {
 			return err
 		}

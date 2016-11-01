@@ -1,6 +1,9 @@
 package reuseport
 
-import "net"
+import (
+	"context"
+	"net"
+)
 
 // TODO. for now, just pass it over to net.Listen/net.Dial
 
@@ -16,8 +19,8 @@ func listenStream(netw, addr string) (net.Listener, error) {
 	return listen(netw, addr)
 }
 
-func dial(dialer net.Dialer, network, address string) (net.Conn, error) {
-	return dialer.Dial(network, address)
+func dial(ctx context.Context, dialer net.Dialer, network, address string) (net.Conn, error) {
+	return dialer.DialContext(ctx, network, address)
 }
 
 // on windows, we just use the regular functions. sources

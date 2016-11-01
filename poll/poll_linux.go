@@ -3,25 +3,50 @@
 package poll
 
 import (
+	"context"
+	"sync"
 	"syscall"
-	"time"
+
+	"github.com/gxed/eventfd"
 )
 
 type Poller struct {
-	epfd   int
-	event  syscall.EpollEvent
-	events [32]syscall.EpollEvent
+	epfd int
+
+	eventMain syscall.EpollEvent
+	eventWait syscall.EpollEvent
+	events    []syscall.EpollEvent
+
+	wake      *eventfd.EventFD // Use eventfd to wakeup epoll
+	wakeMutex sync.Mutex
 }
 
 func New(fd int) (p *Poller, err error) {
-	p = &Poller{}
+	p = &Poller{
+		events: make([]syscall.EpollEvent, 32),
+	}
 	if p.epfd, err = syscall.EpollCreate1(0); err != nil {
 		return nil, err
 	}
+	wake, err := eventfd.New()
+	if err != nil {
+		syscall.Close(p.epfd)
+		return nil, err
+	}
+	p.wake = wake
 
-	p.event.Events = syscall.EPOLLOUT
-	p.event.Fd = int32(fd)
-	if err = syscall.EpollCtl(p.epfd, syscall.EPOLL_CTL_ADD, fd, &p.event); err != nil {
+	p.eventMain.Events = syscall.EPOLLOUT
+	p.eventMain.Fd = int32(fd)
+	if err = syscall.EpollCtl(p.epfd, syscall.EPOLL_CTL_ADD, fd, &p.eventMain); err != nil {
+		p.Close()
+		return nil, err
+	}
+
+	// poll that eventfd can be read
+	p.eventWait.Events = syscall.EPOLLIN
+	p.eventWait.Fd = int32(wake.Fd())
+	if err = syscall.EpollCtl(p.epfd, syscall.EPOLL_CTL_ADD, wake.Fd(), &p.eventWait); err != nil {
+		p.wake.Close()
 		p.Close()
 		return nil, err
 	}
@@ -30,22 +55,77 @@ func New(fd int) (p *Poller, err error) {
 }
 
 func (p *Poller) Close() error {
-	return syscall.Close(p.epfd)
+	p.wakeMutex.Lock()
+	err1 := p.wake.Close()
+	// set wake to nil to be sure that we won't call write on closed wake
+	// it should never happen but if someone changes something this might show a bug
+	p.wake = nil
+	p.wakeMutex.Unlock()
+
+	err2 := syscall.Close(p.epfd)
+	if err1 != nil {
+		return err1
+	} else {
+		return err2
+	}
 }
 
-func (p *Poller) WaitWrite(deadline time.Time) error {
-	msec := -1
-	if !deadline.IsZero() {
-		d := deadline.Sub(time.Now())
-		msec = int(d.Nanoseconds() / 1000000) // ms!? omg...
-	}
+func (p *Poller) WaitWriteCtx(ctx context.Context) error {
+	doneChan := make(chan struct{})
+	defer close(doneChan)
 
-	n, err := syscall.EpollWait(p.epfd, p.events[:], msec)
+	go func() {
+		select {
+		case <-doneChan:
+			return
+		case <-ctx.Done():
+			select {
+			case <-doneChan:
+				// if we re done with this function do not write to p.wake
+				// it might be already closed and the fd could be reopened for
+				// different purpose
+				return
+			default:
+			}
+			p.wakeMutex.Lock()
+			if p.wake != nil {
+				p.wake.WriteEvents(1) // send event to wake up epoll
+			}
+			// if it is nil then we already closed
+			p.wakeMutex.Unlock()
+			return
+		}
+
+	}()
+
+	n, err := syscall.EpollWait(p.epfd, p.events, -1)
 	if err != nil {
 		return err
 	}
-	if n < 1 {
-		return errTimeout
+	good := false
+	for i := 0; i < n; i++ {
+		ev := p.events[i]
+		switch ev.Fd {
+		case p.eventMain.Fd:
+			good = true
+		case p.eventWait.Fd:
+			p.wakeMutex.Lock()
+			p.wake.ReadEvents() // clear eventfd
+			p.wakeMutex.Unlock()
+		default:
+			// shouldn't happen as epoll should onlt return events we registered
+		}
 	}
-	return nil
+	if good {
+		// in case both eventMain and eventWait are lit, we got with eventMain
+		// as it is the success condition here and if both of them are returned
+		// at the same time it means that socket connected right as context timed out
+		return nil
+	}
+	if ctx.Err() == nil {
+		// notification is sent by other goroutine when context deadline was reached
+		// if we are here it means that we got notification buy the deadline wasn't reached
+		panic("notification but no deadline, this should be impossible")
+	}
+	return ctx.Err()
 }
