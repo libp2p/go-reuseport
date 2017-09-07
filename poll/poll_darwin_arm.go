@@ -1,4 +1,4 @@
-// +build darwin,arm64
+// +build darwin,arm
 
 package poll
 
