@@ -3,6 +3,7 @@
 package reuseport
 
 import (
+	"golang.org/x/sys/unix"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -76,7 +77,7 @@ func available() bool {
 		}
 
 		if errno, ok := err.(syscall.Errno); ok {
-			if errno == syscall.ENOPROTOOPT {
+			if errno == unix.ENOPROTOOPT {
 				break // :( that's all folks.
 			}
 		}

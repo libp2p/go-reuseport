@@ -4,8 +4,8 @@ package poll
 
 import (
 	"context"
+	"golang.org/x/sys/unix"
 	"sync"
-	"syscall"
 
 	"github.com/gxed/eventfd"
 )
@@ -13,9 +13,9 @@ import (
 type Poller struct {
 	epfd int
 
-	eventMain syscall.EpollEvent
-	eventWait syscall.EpollEvent
-	events    []syscall.EpollEvent
+	eventMain unix.EpollEvent
+	eventWait unix.EpollEvent
+	events    []unix.EpollEvent
 
 	wake      *eventfd.EventFD // Use eventfd to wakeup epoll
 	wakeMutex sync.Mutex
@@ -23,29 +23,29 @@ type Poller struct {
 
 func New(fd int) (p *Poller, err error) {
 	p = &Poller{
-		events: make([]syscall.EpollEvent, 32),
+		events: make([]unix.EpollEvent, 32),
 	}
-	if p.epfd, err = syscall.EpollCreate1(0); err != nil {
+	if p.epfd, err = unix.EpollCreate1(0); err != nil {
 		return nil, err
 	}
 	wake, err := eventfd.New()
 	if err != nil {
-		syscall.Close(p.epfd)
+		unix.Close(p.epfd)
 		return nil, err
 	}
 	p.wake = wake
 
-	p.eventMain.Events = syscall.EPOLLOUT
+	p.eventMain.Events = unix.EPOLLOUT
 	p.eventMain.Fd = int32(fd)
-	if err = syscall.EpollCtl(p.epfd, syscall.EPOLL_CTL_ADD, fd, &p.eventMain); err != nil {
+	if err = unix.EpollCtl(p.epfd, unix.EPOLL_CTL_ADD, fd, &p.eventMain); err != nil {
 		p.Close()
 		return nil, err
 	}
 
 	// poll that eventfd can be read
-	p.eventWait.Events = syscall.EPOLLIN
+	p.eventWait.Events = unix.EPOLLIN
 	p.eventWait.Fd = int32(wake.Fd())
-	if err = syscall.EpollCtl(p.epfd, syscall.EPOLL_CTL_ADD, wake.Fd(), &p.eventWait); err != nil {
+	if err = unix.EpollCtl(p.epfd, unix.EPOLL_CTL_ADD, wake.Fd(), &p.eventWait); err != nil {
 		p.wake.Close()
 		p.Close()
 		return nil, err
@@ -62,7 +62,7 @@ func (p *Poller) Close() error {
 	p.wake = nil
 	p.wakeMutex.Unlock()
 
-	err2 := syscall.Close(p.epfd)
+	err2 := unix.Close(p.epfd)
 	if err1 != nil {
 		return err1
 	} else {
@@ -98,7 +98,7 @@ func (p *Poller) WaitWriteCtx(ctx context.Context) error {
 
 	}()
 
-	n, err := syscall.EpollWait(p.epfd, p.events, -1)
+	n, err := unix.EpollWait(p.epfd, p.events, -1)
 	if err != nil {
 		return err
 	}
