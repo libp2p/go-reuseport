@@ -1,10 +1,10 @@
 {
   "author": "whyrusleeping",
   "bugs": {
-    "url": "https://github.com/jbenet/go-reuseport"
+    "url": "https://github.com/libp2p/go-reuseport"
   },
   "gx": {
-    "dvcsimport": "github.com/jbenet/go-reuseport"
+    "dvcsimport": "github.com/libp2p/go-reuseport"
   },
   "gxDependencies": [
     {

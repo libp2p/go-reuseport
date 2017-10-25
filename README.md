@@ -1,6 +1,6 @@
 # go-reuseport
 
-[![travisbadge](https://travis-ci.org/jbenet/go-reuseport.svg)](https://travis-ci.org/jbenet/go-reuseport)
+[![travisbadge](https://travis-ci.org/libp2p/go-reuseport.svg)](https://travis-ci.org/libp2p/go-reuseport)
 
 This package enables listening and dialing from _the same_ TCP or UDP port.
 This means that the following sockopts are set:
@@ -10,7 +10,7 @@ SO_REUSEADDR
 SO_REUSEPORT
 ```
 
-- godoc: https://godoc.org/github.com/jbenet/go-reuseport
+- godoc: https://godoc.org/github.com/libp2p/go-reuseport
 
 This is a simple package to get around the problem of reusing addresses.
 The go `net` package (to my knowledge) does not allow setting socket options.

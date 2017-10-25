@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jbenet/go-reuseport/singlepoll"
-	sockaddrnet "github.com/jbenet/go-sockaddr/net"
+	"github.com/libp2p/go-reuseport/singlepoll"
+	sockaddrnet "github.com/libp2p/go-sockaddr/net"
 )
 
 const (

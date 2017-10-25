@@ -64,7 +64,7 @@ func PollPark(reqctx context.Context, fd int, mode string) error {
 
 func criticalError(msg string, err error) {
 	log.Errorf("%s: %s.", msg, err.Error())
-	log.Errorf("This is critical error, please report it at https://github.com/jbenet/go-reuseport/issues/new")
+	log.Errorf("This is critical error, please report it at https://github.com/libp2p/go-reuseport/issues/new")
 	log.Errorf("Bailing out. You are on your own. Good luck.")
 
 	for {
