@@ -4,14 +4,15 @@ package reuseport
 
 import (
 	"context"
+	"golang.org/x/sys/unix"
 	"net"
 	"os"
 	"strconv"
 	"syscall"
 	"time"
 
-	"github.com/jbenet/go-reuseport/singlepoll"
-	sockaddrnet "github.com/jbenet/go-sockaddr/net"
+	"github.com/libp2p/go-reuseport/singlepoll"
+	sockaddrnet "github.com/libp2p/go-sockaddr/net"
 )
 
 const (
@@ -22,9 +23,9 @@ const (
 // descriptor as nonblocking and close-on-exec.
 func socket(family, socktype, protocol int) (fd int, err error) {
 	syscall.ForkLock.RLock()
-	fd, err = syscall.Socket(family, socktype, protocol)
+	fd, err = unix.Socket(family, socktype, protocol)
 	if err == nil {
-		syscall.CloseOnExec(fd)
+		unix.CloseOnExec(fd)
 	}
 	syscall.ForkLock.RUnlock()
 
@@ -33,25 +34,25 @@ func socket(family, socktype, protocol int) (fd int, err error) {
 	}
 
 	// cant set it until after connect
-	// if err = syscall.SetNonblock(fd, true); err != nil {
-	// 	syscall.Close(fd)
+	// if err = unix.SetNonblock(fd, true); err != nil {
+	// 	unix.Close(fd)
 	// 	return -1, err
 	// }
 
-	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, soReuseAddr, 1); err != nil {
-		syscall.Close(fd)
+	if err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, soReuseAddr, 1); err != nil {
+		unix.Close(fd)
 		return -1, err
 	}
 
-	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, soReusePort, 1); err != nil {
-		syscall.Close(fd)
+	if err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, soReusePort, 1); err != nil {
+		unix.Close(fd)
 		return -1, err
 	}
 
 	// set setLinger to 5 as reusing exact same (srcip:srcport, dstip:dstport)
 	// will otherwise fail on connect.
 	if err = setLinger(fd, 5); err != nil {
-		syscall.Close(fd)
+		unix.Close(fd)
 		return -1, err
 	}
 
@@ -68,8 +69,8 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 		rprotocol      int
 		file           *os.File
 		deadline       time.Time
-		remoteSockaddr syscall.Sockaddr
-		localSockaddr  syscall.Sockaddr
+		remoteSockaddr unix.Sockaddr
+		localSockaddr  unix.Sockaddr
 	)
 
 	netAddr, err := ResolveAddr(netw, addr)
@@ -130,19 +131,19 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 		}
 
 		if localSockaddr != nil {
-			if err = syscall.Bind(fd, localSockaddr); err != nil {
-				syscall.Close(fd)
+			if err = unix.Bind(fd, localSockaddr); err != nil {
+				unix.Close(fd)
 				return nil, err
 			}
 		}
 
-		if err = syscall.SetNonblock(fd, true); err != nil {
-			syscall.Close(fd)
+		if err = unix.SetNonblock(fd, true); err != nil {
+			unix.Close(fd)
 			return nil, err
 		}
 
 		if err = connect(ctx, fd, remoteSockaddr, deadline); err != nil {
-			syscall.Close(fd)
+			unix.Close(fd)
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
@@ -155,15 +156,15 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 		return nil, err
 	}
 
-	if rprotocol == syscall.IPPROTO_TCP {
+	if rprotocol == unix.IPPROTO_TCP {
 		//  by default golang/net sets TCP no delay to true.
 		if err = setNoDelay(fd, true); err != nil {
-			syscall.Close(fd)
+			unix.Close(fd)
 			return nil, err
 		}
 	}
 
-	// NOTE:XXX: never call syscall.Close on fd after os.NewFile
+	// NOTE:XXX: never call unix.Close on fd after os.NewFile
 	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
 	fd = -1 // so we don't touch it, we handled the control to Golang with NewFile
 	if c, err = net.FileConn(file); err != nil {
@@ -185,7 +186,7 @@ func listen(netw, addr string) (fd int, err error) {
 		family   int
 		socktype int
 		protocol int
-		sockaddr syscall.Sockaddr
+		sockaddr unix.Sockaddr
 	)
 
 	netAddr, err := ResolveAddr(netw, addr)
@@ -208,21 +209,21 @@ func listen(netw, addr string) (fd int, err error) {
 		return -1, err
 	}
 
-	if err = syscall.Bind(fd, sockaddr); err != nil {
-		syscall.Close(fd)
+	if err = unix.Bind(fd, sockaddr); err != nil {
+		unix.Close(fd)
 		return -1, err
 	}
 
-	if protocol == syscall.IPPROTO_TCP {
+	if protocol == unix.IPPROTO_TCP {
 		//  by default golang/net sets TCP no delay to true.
 		if err = setNoDelay(fd, true); err != nil {
-			syscall.Close(fd)
+			unix.Close(fd)
 			return -1, err
 		}
 	}
 
-	if err = syscall.SetNonblock(fd, true); err != nil {
-		syscall.Close(fd)
+	if err = unix.SetNonblock(fd, true); err != nil {
+		unix.Close(fd)
 		return -1, err
 	}
 
@@ -240,19 +241,19 @@ func listenStream(netw, addr string) (l net.Listener, err error) {
 	}
 
 	// Set backlog size to the maximum
-	if err = syscall.Listen(fd, syscall.SOMAXCONN); err != nil {
-		syscall.Close(fd)
+	if err = unix.Listen(fd, unix.SOMAXCONN); err != nil {
+		unix.Close(fd)
 		return nil, err
 	}
 
 	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
 	if l, err = net.FileListener(file); err != nil {
-		syscall.Close(fd)
+		unix.Close(fd)
 		return nil, err
 	}
 
 	if err = file.Close(); err != nil {
-		syscall.Close(fd)
+		unix.Close(fd)
 		l.Close()
 		return nil, err
 	}
@@ -272,12 +273,12 @@ func listenPacket(netw, addr string) (p net.PacketConn, err error) {
 
 	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
 	if p, err = net.FilePacketConn(file); err != nil {
-		syscall.Close(fd)
+		unix.Close(fd)
 		return nil, err
 	}
 
 	if err = file.Close(); err != nil {
-		syscall.Close(fd)
+		unix.Close(fd)
 		p.Close()
 		return nil, err
 	}
@@ -297,12 +298,12 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 
 	file = os.NewFile(uintptr(fd), filePrefix+strconv.Itoa(os.Getpid()))
 	if c, err = net.FileConn(file); err != nil {
-		syscall.Close(fd)
+		unix.Close(fd)
 		return nil, err
 	}
 
 	if err = file.Close(); err != nil {
-		syscall.Close(fd)
+		unix.Close(fd)
 		return nil, err
 	}
 
@@ -310,16 +311,16 @@ func listenUDP(netw, addr string) (c net.Conn, err error) {
 }
 
 // this is close to the connect() function inside stdlib/net
-func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Time) error {
+func connect(ctx context.Context, fd int, ra unix.Sockaddr, deadline time.Time) error {
 	if !deadline.IsZero() {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithDeadline(ctx, deadline)
 		defer cancel()
 	}
 
-	switch err := syscall.Connect(fd, ra); err {
-	case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
-	case nil, syscall.EISCONN:
+	switch err := unix.Connect(fd, ra); err {
+	case unix.EINPROGRESS, unix.EALREADY, unix.EINTR:
+	case nil, unix.EISCONN:
 		if !deadline.IsZero() && deadline.Before(time.Now()) {
 			return errTimeout
 		}
@@ -342,16 +343,16 @@ func connect(ctx context.Context, fd int, ra syscall.Sockaddr, deadline time.Tim
 		// i'd use the above fd.pd.WaitWrite to poll io correctly, just like net sockets...
 		// but of course, it uses the damn runtime_* functions that _cannot_ be used by
 		// non-go-stdlib source... seriously guys, this is not nice.
-		// we're relegated to using syscall.Select (what nightmare that is) or using
+		// we're relegated to using unix.Select (what nightmare that is) or using
 		// a simple but totally bogus time-based wait. such garbage.
-		nerr, err := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
+		nerr, err := unix.GetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_ERROR)
 		if err != nil {
 			return err
 		}
 		switch err = syscall.Errno(nerr); err {
-		case syscall.EINPROGRESS, syscall.EALREADY, syscall.EINTR:
+		case unix.EINPROGRESS, unix.EALREADY, unix.EINTR:
 			continue
-		case syscall.Errno(0), syscall.EISCONN:
+		case syscall.Errno(0), unix.EISCONN:
 			if !deadline.IsZero() && deadline.Before(time.Now()) {
 				return errTimeout
 			}

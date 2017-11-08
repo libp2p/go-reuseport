@@ -5,8 +5,8 @@ package singlepoll
 import (
 	"context"
 	"errors"
+	"golang.org/x/sys/unix"
 	"sync"
-	"syscall"
 
 	"github.com/gxed/eventfd"
 	logging "github.com/ipfs/go-log"
@@ -43,9 +43,9 @@ func PollPark(reqctx context.Context, fd int, mode string) error {
 	for _, c := range mode {
 		switch c {
 		case 'w':
-			events |= syscall.EPOLLOUT
+			events |= unix.EPOLLOUT
 		case 'r':
-			events |= syscall.EPOLLIN
+			events |= unix.EPOLLIN
 		default:
 			return ErrUnsupportedMode
 		}
@@ -64,7 +64,7 @@ func PollPark(reqctx context.Context, fd int, mode string) error {
 
 func criticalError(msg string, err error) {
 	log.Errorf("%s: %s.", msg, err.Error())
-	log.Errorf("This is critical error, please report it at https://github.com/jbenet/go-reuseport/issues/new")
+	log.Errorf("This is critical error, please report it at https://github.com/libp2p/go-reuseport/issues/new")
 	log.Errorf("Bailing out. You are on your own. Good luck.")
 
 	for {
@@ -82,7 +82,7 @@ func criticalError(msg string, err error) {
 }
 
 func worker() {
-	epfd, err := syscall.EpollCreate1(0)
+	epfd, err := unix.EpollCreate1(0)
 	if err != nil {
 		criticalError("EpollCreate1(0) failed", err)
 	}
@@ -94,18 +94,18 @@ func worker() {
 	pool := make(map[int]addPoll)
 
 	{
-		event := syscall.EpollEvent{
-			Events: syscall.EPOLLIN,
+		event := unix.EpollEvent{
+			Events: unix.EPOLLIN,
 			Fd:     int32(evfd.Fd()),
 		}
-		syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, evfd.Fd(), &event)
+		unix.EpollCtl(epfd, unix.EPOLL_CTL_ADD, evfd.Fd(), &event)
 	}
 	go poller(epfd, evfd)
 
 	remove := func(fd int) *addPoll {
 		unit, ok := pool[fd]
 		if ok {
-			syscall.EpollCtl(epfd, syscall.EPOLL_CTL_DEL, unit.fd, nil)
+			unix.EpollCtl(epfd, unix.EPOLL_CTL_DEL, unit.fd, nil)
 			delete(pool, fd)
 			close(unit.wakeUp)
 		}
@@ -119,8 +119,8 @@ func worker() {
 		case unit := <-workChan:
 			switch u := unit.(type) {
 			case addPoll:
-				event := syscall.EpollEvent{
-					Events: u.events | syscall.EPOLLONESHOT,
+				event := unix.EpollEvent{
+					Events: u.events | unix.EPOLLONESHOT,
 					Fd:     int32(u.fd),
 				}
 
@@ -134,7 +134,7 @@ func worker() {
 				}
 				pool[u.fd] = u
 
-				err := syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, u.fd, &event)
+				err := unix.EpollCtl(epfd, unix.EPOLL_CTL_ADD, u.fd, &event)
 				if err != nil {
 					delete(pool, u.fd)
 					u.wakeUp <- err
@@ -157,7 +157,7 @@ func worker() {
 					}
 				}()
 
-			case []syscall.EpollEvent:
+			case []unix.EpollEvent:
 				for _, event := range u {
 					remove(int(event.Fd))
 				}
@@ -175,13 +175,13 @@ func poller(epfd int, evfd *eventfd.EventFD) {
 		// 128 is quite arbitrary
 		// to small and number of EpollWait calls would increase
 		// to big and GC overhead increases
-		events := make([]syscall.EpollEvent, 128)
-		n, err := syscall.EpollWait(epfd, events, -1)
+		events := make([]unix.EpollEvent, 128)
+		n, err := unix.EpollWait(epfd, events, -1)
 
 		switch err {
 		case nil:
 			// everything is great
-		case syscall.EINTR:
+		case unix.EINTR:
 			// ignore
 			continue
 		default:
@@ -192,7 +192,7 @@ func poller(epfd int, evfd *eventfd.EventFD) {
 
 		for i := 0; i < n; i++ {
 			if int(events[i].Fd) == evfd.Fd() {
-				syscall.Close(epfd)
+				unix.Close(epfd)
 				evfd.Close()
 				return
 			}

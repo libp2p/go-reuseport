@@ -20,6 +20,7 @@ package reuseport
 import (
 	"context"
 	"errors"
+	"golang.org/x/sys/unix"
 	"net"
 	"syscall"
 	"time"
@@ -45,7 +46,7 @@ var ErrReuseFailed = errors.New("reuse failed")
 // with SO_REUSEPORT and SO_REUSEADDR option set.
 func Listen(network, address string) (net.Listener, error) {
 	if !available() {
-		return nil, syscall.Errno(syscall.ENOPROTOOPT)
+		return nil, syscall.Errno(unix.ENOPROTOOPT)
 	}
 
 	return listenStream(network, address)
@@ -56,7 +57,7 @@ func Listen(network, address string) (net.Listener, error) {
 // with SO_REUSEPORT and SO_REUSEADDR option set.
 func ListenPacket(network, address string) (net.PacketConn, error) {
 	if !available() {
-		return nil, syscall.Errno(syscall.ENOPROTOOPT)
+		return nil, syscall.Errno(unix.ENOPROTOOPT)
 	}
 
 	return listenPacket(network, address)
@@ -67,7 +68,7 @@ func ListenPacket(network, address string) (net.PacketConn, error) {
 // with SO_REUSEPORT and SO_REUSEADDR option set.
 func Dial(network, laddr, raddr string) (net.Conn, error) {
 	if !available() {
-		return nil, syscall.Errno(syscall.ENOPROTOOPT)
+		return nil, syscall.Errno(unix.ENOPROTOOPT)
 	}
 
 	var d Dialer
@@ -97,7 +98,7 @@ func (d *Dialer) Dial(network, address string) (net.Conn, error) {
 
 func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	if !available() {
-		return nil, syscall.Errno(syscall.ENOPROTOOPT)
+		return nil, syscall.Errno(unix.ENOPROTOOPT)
 	}
 
 	return dial(ctx, d.D, network, address)

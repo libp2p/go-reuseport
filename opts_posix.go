@@ -7,8 +7,8 @@
 package reuseport
 
 import (
+	"golang.org/x/sys/unix"
 	"os"
-	"syscall"
 )
 
 func boolint(b bool) int {
@@ -19,11 +19,11 @@ func boolint(b bool) int {
 }
 
 func setNoDelay(fd int, noDelay bool) error {
-	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, syscall.TCP_NODELAY, boolint(noDelay)))
+	return os.NewSyscallError("setsockopt", unix.SetsockoptInt(fd, unix.IPPROTO_TCP, unix.TCP_NODELAY, boolint(noDelay)))
 }
 
 func setLinger(fd int, sec int) error {
-	var l syscall.Linger
+	var l unix.Linger
 	if sec >= 0 {
 		l.Onoff = 1
 		l.Linger = int32(sec)
@@ -31,5 +31,5 @@ func setLinger(fd int, sec int) error {
 		l.Onoff = 0
 		l.Linger = 0
 	}
-	return os.NewSyscallError("setsockopt", syscall.SetsockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, &l))
+	return os.NewSyscallError("setsockopt", unix.SetsockoptLinger(fd, unix.SOL_SOCKET, unix.SO_LINGER, &l))
 }

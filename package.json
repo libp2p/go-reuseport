@@ -1,10 +1,10 @@
 {
   "author": "whyrusleeping",
   "bugs": {
-    "url": "https://github.com/jbenet/go-reuseport"
+    "url": "https://github.com/libp2p/go-reuseport"
   },
   "gx": {
-    "dvcsimport": "github.com/jbenet/go-reuseport"
+    "dvcsimport": "github.com/libp2p/go-reuseport"
   },
   "gxDependencies": [
     {
@@ -14,9 +14,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmcLqWSFsaQ8Ujh8Ys8i9JPHVy1CcdPoqV23M9S3ufdVbn",
+      "hash": "QmTQZAuiXEkTNcF91c8Q9sN3f4dTNQS3Zuy5GHKEJ1ACea",
       "name": "go-sockaddr",
-      "version": "0.0.0"
+      "version": "1.0.0"
     },
     {
       "author": "whyrusleeping",
@@ -28,6 +28,12 @@
       "author": "whyrusleeping",
       "hash": "QmSGRM5Udmy1jsFBr1Cawez7Lt7LZ3ZKA23GGVEsiEW6F3",
       "name": "eventfd",
+      "version": "0.1.0"
+    },
+    {
+      "author": "The Go Authors",
+      "hash": "QmPXvegq26x982cQjSfbTvSzZXn7GiaMwhhVPHkeTEhrPT",
+      "name": "sys",
       "version": "0.1.0"
     }
   ],

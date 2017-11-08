@@ -7,7 +7,7 @@ import (
 	"os"
 
 	resolve "github.com/jbenet/go-net-resolve-addr"
-	reuse "github.com/jbenet/go-reuseport"
+	reuse "github.com/libp2p/go-reuseport"
 )
 
 func main() {

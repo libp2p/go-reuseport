@@ -1,7 +1,24 @@
-language: go
+sudo: false
 
+os:
+  - linux
+  - osx
+
+language: go
 go:
-  - 1.7
+  - 1.8
+
+install:
+  - go get github.com/whyrusleeping/gx
+  - go get github.com/whyrusleeping/gx-go
+  - gx install --global
 
 script:
-  - go test -race -cpu=5 -v ./...
+  - gx test -race -cpu=5 -v ./...
+
+cache:
+  directories:
+    - $GOPATH/src/gx
+
+notifications:
+  email: false
