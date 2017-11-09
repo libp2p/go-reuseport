@@ -25,9 +25,6 @@ func New(fd int) (p *Poller, err error) {
 		Ident:  uint64(fd),
 		Filter: unix.EVFILT_WRITE,
 		Flags:  unix.EV_ADD | unix.EV_ENABLE | unix.EV_ONESHOT,
-		Fflags: 0,
-		Data:   0,
-		Udata:  nil,
 	}
 	return p, nil
 }
