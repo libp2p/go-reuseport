@@ -6,15 +6,13 @@ os:
 
 language: go
 go:
-  - 1.9
+  - 1.9.x
 
-install:
-  - go get github.com/whyrusleeping/gx
-  - go get github.com/whyrusleeping/gx-go
-  - gx install --global
+before_install:
+  - make deps
 
 script:
-  - gx test -race -cpu=5 -v ./...
+  - bash <(curl -s https://raw.githubusercontent.com/ipfs/ci-helpers/master/travis-ci/run-standard-tests.sh)
 
 cache:
   directories:
@@ -22,3 +20,5 @@ cache:
 
 notifications:
   email: false
+
+env: GOTFLAGS="-race -cpu=5"
