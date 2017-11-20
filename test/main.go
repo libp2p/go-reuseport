@@ -26,8 +26,8 @@ func main() {
 	a3, err := resolve.ResolveAddr("dial", "tcp", "127.0.0.1:33333")
 	maybeDie(err)
 
-	d1 := reuse.Dialer{net.Dialer{LocalAddr: a1}}
-	d2 := reuse.Dialer{net.Dialer{LocalAddr: a3}}
+	d1 := reuse.Dialer{D: net.Dialer{LocalAddr: a1}}
+	d2 := reuse.Dialer{D: net.Dialer{LocalAddr: a3}}
 
 	go func() {
 		l2to1foo, err := l2.Accept()
