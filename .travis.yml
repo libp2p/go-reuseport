@@ -1,4 +1,4 @@
-sudo: false
+sudo: required
 
 os:
   - linux
@@ -6,15 +6,14 @@ os:
 
 language: go
 go:
-  - 1.9
+  - 1.9.x
 
 install:
-  - go get github.com/whyrusleeping/gx
-  - go get github.com/whyrusleeping/gx-go
-  - gx install --global
+  - make deps
 
 script:
-  - gx test -race -cpu=5 -v ./...
+  - sudo sysctl -w net.ipv6.conf.lo.disable_ipv6=0 net.ipv6.conf.default.disable_ipv6=0 net.ipv6.conf.all.disable_ipv6=0
+  - bash <(curl -s https://raw.githubusercontent.com/ipfs/ci-helpers/master/travis-ci/run-standard-tests.sh)
 
 cache:
   directories:
@@ -22,3 +21,5 @@ cache:
 
 notifications:
   email: false
+
+env: GOTFLAGS="-race -cpu=5"
