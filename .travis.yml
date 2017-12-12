@@ -1,4 +1,4 @@
-sudo: false
+sudo: required
 
 os:
   - linux
@@ -12,6 +12,7 @@ install:
   - make deps
 
 script:
+  - sudo sysctl -w net.ipv6.conf.lo.disable_ipv6=0 net.ipv6.conf.default.disable_ipv6=0 net.ipv6.conf.all.disable_ipv6=0
   - bash <(curl -s https://raw.githubusercontent.com/ipfs/ci-helpers/master/travis-ci/run-standard-tests.sh)
 
 cache:
