@@ -39,12 +39,12 @@ func socket(family, socktype, protocol int) (fd int, err error) {
 	// 	return -1, err
 	// }
 
-	if err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, soReuseAddr, 1); err != nil {
+	if err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1); err != nil {
 		unix.Close(fd)
 		return -1, err
 	}
 
-	if err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, soReusePort, 1); err != nil {
+	if err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEPORT, 1); err != nil {
 		unix.Close(fd)
 		return -1, err
 	}
