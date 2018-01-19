@@ -168,6 +168,7 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 			return nil, err
 		}
 
+		// Need to call setLinger 0. Otherwise, the close will block for the linger period. Linux bug?
 		switch s := sa.(type) {
 		case *unix.SockaddrInet4:
 			if r, ok := ra.(*unix.SockaddrInet4); ok && r.Addr == s.Addr && r.Port == s.Port {
