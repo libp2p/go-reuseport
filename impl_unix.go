@@ -177,6 +177,15 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 		return nil, err
 	}
 
+	if rprotocol == unix.IPPROTO_TCP {
+		raddr := c.RemoteAddr().(*net.TCPAddr)
+		laddr := c.LocalAddr().(*net.TCPAddr)
+		if raddr.Port == laddr.Port && raddr.Zone == laddr.Zone && raddr.IP.Equal(laddr.IP) {
+			c.Close()
+			return nil, ErrDialSelf
+		}
+	}
+
 	// c = wrapConnWithRemoteAddr(c, netAddr)
 	return c, err
 }

@@ -40,6 +40,9 @@ var ErrUnsupportedProtocol = errors.New("protocol not yet supported")
 // ErrReuseFailed is returned if a reuse attempt was unsuccessful.
 var ErrReuseFailed = errors.New("reuse failed")
 
+// ErrDialSelf is returned if we connect to our own source address.
+var ErrDialSelf = errors.New("dialed our own socket")
+
 // Listen listens at the given network and address. see net.Listen
 // Returns a net.Listener created from a file discriptor for a socket
 // with SO_REUSEPORT and SO_REUSEADDR option set.
