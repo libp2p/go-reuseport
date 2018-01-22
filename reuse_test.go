@@ -114,6 +114,17 @@ func TestStreamListenSamePort(t *testing.T) {
 	}
 }
 
+func TestDialSelf(t *testing.T) {
+	l, err := Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Dial("tcp4", l.Addr().String(), l.Addr().String())
+	if err != ErrDialSelf {
+		t.Fatal("should have gotten an error for dialing self")
+	}
+}
+
 func TestPacketListenSamePort(t *testing.T) {
 
 	// any ports

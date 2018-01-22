@@ -157,6 +157,33 @@ func dial(ctx context.Context, dialer net.Dialer, netw, addr string) (c net.Conn
 	}
 
 	if rprotocol == unix.IPPROTO_TCP {
+		sa, err := unix.Getsockname(fd)
+		if err != nil {
+			unix.Close(fd)
+			return nil, err
+		}
+		ra, err := unix.Getpeername(fd)
+		if err != nil {
+			unix.Close(fd)
+			return nil, err
+		}
+
+		// Need to call setLinger 0. Otherwise, the close will block for the linger period. Linux bug?
+		switch s := sa.(type) {
+		case *unix.SockaddrInet4:
+			if r, ok := ra.(*unix.SockaddrInet4); ok && r.Addr == s.Addr && r.Port == s.Port {
+				setLinger(fd, 0)
+				unix.Close(fd)
+				return nil, ErrDialSelf
+			}
+		case *unix.SockaddrInet6:
+			if r, ok := ra.(*unix.SockaddrInet6); ok && r.Addr == s.Addr && r.Port == s.Port && r.ZoneId == s.ZoneId {
+				setLinger(fd, 0)
+				unix.Close(fd)
+				return nil, ErrDialSelf
+			}
+		}
+
 		//  by default golang/net sets TCP no delay to true.
 		if err = setNoDelay(fd, true); err != nil {
 			unix.Close(fd)
