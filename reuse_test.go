@@ -120,7 +120,7 @@ func TestDialSelf(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = Dial("tcp4", l.Addr().String(), l.Addr().String())
-	if err != ErrDialSelf {
+	if err == nil {
 		t.Fatal("should have gotten an error for dialing self")
 	}
 }
