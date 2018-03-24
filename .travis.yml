@@ -6,12 +6,13 @@ os:
 
 language: go
 go:
-  - 1.9.x
+  - 1.10.x
 
 install:
   - make deps
 
 script:
+  - make test-xbuild
   - bash <(curl -s https://raw.githubusercontent.com/ipfs/ci-helpers/master/travis-ci/run-standard-tests.sh)
 
 cache:
