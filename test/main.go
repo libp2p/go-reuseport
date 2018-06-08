@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 
-	resolve "github.com/jbenet/go-net-resolve-addr"
 	reuse "github.com/libp2p/go-reuseport"
 )
 
@@ -20,10 +19,10 @@ func main() {
 	maybeDie(err)
 	fmt.Printf("listening on %s\n", l2.Addr())
 
-	a1, err := resolve.ResolveAddr("dial", "tcp", "127.0.0.1:11111")
+	a1, err := reuse.ResolveAddr("tcp", "127.0.0.1:11111")
 	maybeDie(err)
 
-	a3, err := resolve.ResolveAddr("dial", "tcp", "127.0.0.1:33333")
+	a3, err := reuse.ResolveAddr("tcp", "127.0.0.1:33333")
 	maybeDie(err)
 
 	d1 := reuse.Dialer{D: net.Dialer{LocalAddr: a1}}

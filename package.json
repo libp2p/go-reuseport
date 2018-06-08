@@ -20,12 +20,6 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qma73Sqt13DzHzveZ667BBfraM7MuMrPepUXjmv812JhRS",
-      "name": "go-net-resolve-addr",
-      "version": "0.0.0"
-    },
-    {
-      "author": "whyrusleeping",
       "hash": "QmSGRM5Udmy1jsFBr1Cawez7Lt7LZ3ZKA23GGVEsiEW6F3",
       "name": "eventfd",
       "version": "0.1.0"
