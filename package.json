@@ -36,6 +36,6 @@
   "license": "",
   "name": "go-reuseport",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "0.1.13"
+  "version": "0.1.14"
 }
 
