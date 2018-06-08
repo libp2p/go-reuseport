@@ -8,15 +8,15 @@
   },
   "gxDependencies": [
     {
-      "hash": "QmTG23dvpBCBjqQwyDxV8CQT6jmS4PSftNr1VqHhE3MLy7",
+      "hash": "QmTsjVoib7EJhT7tmcqKPhEaATcxd6UVZu2qxdthk85vvv",
       "name": "go-log",
-      "version": "1.4.1"
+      "version": "1.5.1"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmReJHiSNCL7heqC4rccNLxTsNtRKufw7qYt9VhABJv54f",
+      "hash": "QmNzEyX7vjWiqinyLeavcAF1oegav6dZ1aQpAkYvG9m5Ze",
       "name": "go-sockaddr",
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "author": "whyrusleeping",
@@ -26,9 +26,9 @@
     },
     {
       "author": "The Go Authors",
-      "hash": "QmPXvegq26x982cQjSfbTvSzZXn7GiaMwhhVPHkeTEhrPT",
+      "hash": "QmVGjyM9i2msKvLXwh9VosCTgP4mL91kC7hDmqnwTTx6Hu",
       "name": "sys",
-      "version": "0.1.0"
+      "version": "0.2.0"
     }
   ],
   "gxVersion": "0.9.0",
@@ -36,6 +36,6 @@
   "license": "",
   "name": "go-reuseport",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "0.1.13"
+  "version": "0.1.14"
 }
 
