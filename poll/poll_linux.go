@@ -124,7 +124,7 @@ func (p *Poller) WaitWriteCtx(ctx context.Context) error {
 	}
 	if ctx.Err() == nil {
 		// notification is sent by other goroutine when context deadline was reached
-		// if we are here it means that we got notification buy the deadline wasn't reached
+		// if we are here it means that we got notification but the deadline wasn't reached
 		panic("notification but no deadline, this should be impossible")
 	}
 	return ctx.Err()
