@@ -3,6 +3,7 @@ package reuseport
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,6 +15,9 @@ func testDialFromListeningPort(t *testing.T, network string) {
 	}
 	ctx := context.Background()
 	ll, err := lc.Listen(ctx, network, "localhost:0")
+	if err != nil && strings.Contains(err.Error(), "cannot assign requested address") {
+		t.Skip(err)
+	}
 	require.NoError(t, err)
 	rl, err := lc.Listen(ctx, network, "localhost:0")
 	require.NoError(t, err)
