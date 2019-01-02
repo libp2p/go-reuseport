@@ -24,7 +24,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Available returns whether or not SO_REUSEPORT is available in the OS.
+// Available returns whether or not SO_REUSEPORT or equivalent behaviour is
+// available in the OS.
 func Available() bool {
 	return true
 }
