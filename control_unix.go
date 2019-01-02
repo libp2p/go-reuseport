@@ -11,12 +11,12 @@ import (
 func Control(network, address string, c syscall.RawConn) error {
 	var err error
 	c.Control(func(fd uintptr) {
-		err = syscall.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
+		err = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
 		if err != nil {
 			return
 		}
 
-		err = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, syscall.SO_REUSEPORT, 1)
+		err = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
 		if err != nil {
 			return
 		}
