@@ -13,19 +13,23 @@ func testDialFromListeningPort(t *testing.T, network string) {
 		Control: Control,
 	}
 	ctx := context.Background()
-	l1, err := lc.Listen(ctx, network, "localhost:0")
+	ll, err := lc.Listen(ctx, network, "localhost:0")
 	require.NoError(t, err)
-	l2, err := lc.Listen(ctx, network, "localhost:0")
+	rl, err := lc.Listen(ctx, network, "localhost:0")
 	require.NoError(t, err)
 	d := net.Dialer{
-		LocalAddr: l1.Addr(),
+		LocalAddr: ll.Addr(),
 		Control:   Control,
 	}
-	c, err := d.Dial(network, l2.Addr().String())
+	c, err := d.Dial(network, rl.Addr().String())
 	require.NoError(t, err)
 	c.Close()
 }
 
 func TestDialFromListeningPort(t *testing.T) {
 	testDialFromListeningPort(t, "tcp")
+}
+
+func TestDialFromListeningPortTcp6(t *testing.T) {
+	testDialFromListeningPort(t, "tcp6")
 }
