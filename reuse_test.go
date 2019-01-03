@@ -37,3 +37,9 @@ func TestDialFromListeningPort(t *testing.T) {
 func TestDialFromListeningPortTcp6(t *testing.T) {
 	testDialFromListeningPort(t, "tcp6", "[::1]")
 }
+
+func TestListenPacketWildcardAddress(t *testing.T) {
+	pc, err := ListenPacket("udp", ":0")
+	require.NoError(t, err)
+	pc.Close()
+}
