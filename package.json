@@ -29,6 +29,12 @@
       "hash": "QmVGjyM9i2msKvLXwh9VosCTgP4mL91kC7hDmqnwTTx6Hu",
       "name": "sys",
       "version": "0.2.0"
+    },
+    {
+      "author": "whyrusleeping",
+      "hash": "QmVmDhyTTUcQXFD1rRQ64fGLMSAoaQvNH3hwuaCFAPq2hy",
+      "name": "errors",
+      "version": "0.0.1"
     }
   ],
   "gxVersion": "0.9.0",
