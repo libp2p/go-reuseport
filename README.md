@@ -2,6 +2,8 @@
 
 [![travisbadge](https://travis-ci.org/libp2p/go-reuseport.svg)](https://travis-ci.org/libp2p/go-reuseport)
 
+**NOTE:** This package REQUIRES go >= 1.11.
+
 This package enables listening and dialing from _the same_ TCP or UDP port.
 This means that the following sockopts may be set:
 
