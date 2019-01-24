@@ -1,45 +1,65 @@
 package reuseport
 
 import (
-	"context"
-	"net"
-	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
-func testDialFromListeningPort(t *testing.T, network, host string) {
-	lc := net.ListenConfig{
-		Control: Control,
+var message = "Error %v when attempting to listen to 127.0.0.1"
+
+func TestReusePortFeatureAvailable(t *testing.T) {
+	if ok := Available(); !ok {
+		t.Error("SO_REUSEPORT is not available on this OS")
 	}
-	ctx := context.Background()
-	ll, err := lc.Listen(ctx, network, host+":0")
-	if err != nil && strings.Contains(err.Error(), "cannot assign requested address") {
-		t.Skip(err)
+}
+
+func TestListenOnSamePort(t *testing.T) {
+	l1, err := Listen("tcp", "127.0.0.1:1234")
+	if err != nil {
+		t.Errorf(message+":1234", err)
 	}
-	require.NoError(t, err)
-	rl, err := lc.Listen(ctx, network, host+":0")
-	require.NoError(t, err)
-	d := net.Dialer{
-		LocalAddr: ll.Addr(),
-		Control:   Control,
+	l2, err := Listen("tcp", "127.0.0.1:1234")
+	if err != nil {
+		t.Errorf(message+":1234", err)
 	}
-	c, err := d.Dial(network, rl.Addr().String())
-	require.NoError(t, err)
+	l1.Close()
+	l2.Close()
+
+	lp1, err := ListenPacket("udp", "127.0.0.1:1235")
+	if err != nil {
+		t.Errorf(message+":1234", err)
+	}
+	lp2, err := ListenPacket("udp", "127.0.0.1:1235")
+	if err != nil {
+		t.Errorf(message+":1234", err)
+	}
+	lp1.Close()
+	lp2.Close()
+}
+
+func TestDialFromSamePort(t *testing.T) {
+	_, err := Listen("tcp", "127.0.0.1:1234")
+	if err != nil {
+		t.Errorf(message+":1234", err)
+	}
+	_, err = Listen("tcp", "127.0.0.1:1235")
+	if err != nil {
+		t.Errorf(message+":1235", err)
+	}
+	c, err := Dial("tcp", "127.0.0.1:1234", "127.0.0.1:1235")
+	if err != nil {
+		t.Errorf("Error %v when attempting to dial from 127.0.0.1:1234 to 127.0.0.1:1235", err)
+	}
 	c.Close()
 }
 
-func TestDialFromListeningPort(t *testing.T) {
-	testDialFromListeningPort(t, "tcp", "localhost")
-}
+func TestErrorWhenDialUnresolvable(t *testing.T) {
+	_, err := Dial("asd", "127.0.0.1:1234", "127.0.0.1:1234")
+	if err == nil {
+		t.Error("Expected error when trying to dial an unknown protocol")
+	}
 
-func TestDialFromListeningPortTcp6(t *testing.T) {
-	testDialFromListeningPort(t, "tcp6", "[::1]")
-}
-
-func TestListenPacketWildcardAddress(t *testing.T) {
-	pc, err := ListenPacket("udp", ":0")
-	require.NoError(t, err)
-	pc.Close()
+	_, err = Dial("tcp", "a.b.c.d:1234", "a.b.c.d:1235")
+	if err == nil {
+		t.Error("Expected error when trying to dial an unknown address")
+	}
 }
