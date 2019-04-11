@@ -45,3 +45,7 @@ c, _ := reuse.Dial("tcp", "127.0.0.1:1234", "127.0.0.1:1235")
 ## Tested
 
 Tested on `darwin`, `linux`, and `windows`.
+
+---
+
+The last gx published version of this module was: 0.2.2: Qme8kdM7thoCqLqd7GYCRqipoZJS64rhJo5MBcTpyWfsL9
