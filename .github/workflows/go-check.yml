@@ -2,26 +2,31 @@
 # See https://github.com/protocol/.github/ for details.
 
 on: [push, pull_request]
+name: Go Checks
 
 jobs:
   unit:
     runs-on: ubuntu-latest
-    name: Go checks
+    name: All
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - uses: actions/setup-go@v2
         with:
           go-version: "1.16.x"
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@be534f007836a777104a15f2456cd1fffd3ddee8 # v2020.2.2
+        run: go install honnef.co/go/tools/cmd/staticcheck@434f5f3816b358fe468fa83dcba62d794e7fe04b # 2021.1 (v0.2.0)
       - name: Check that go.mod is tidy
-        run: |
-          go mod tidy
-          if [[ -n $(git ls-files --other --exclude-standard --directory -- go.sum) ]]; then
-            echo "go.sum was added by go mod tidy"
-            exit 1
-          fi
-          git diff --exit-code -- go.sum go.mod
+        uses: protocol/multiple-go-modules@v1.0
+        with:
+          run: |
+            go mod tidy
+            if [[ -n $(git ls-files --other --exclude-standard --directory -- go.sum) ]]; then
+              echo "go.sum was added by go mod tidy"
+              exit 1
+            fi
+            git diff --exit-code -- go.sum go.mod
       - name: gofmt
         if: ${{ success() || failure() }} # run this step even if the previous one failed
         run: |
@@ -32,10 +37,14 @@ jobs:
           fi
       - name: go vet
         if: ${{ success() || failure() }} # run this step even if the previous one failed
-        run: go vet ./...
+        uses: protocol/multiple-go-modules@v1.0
+        with:
+          run: go vet ./...
       - name: staticcheck
         if: ${{ success() || failure() }} # run this step even if the previous one failed
-        run: |
-          set -o pipefail
-          staticcheck ./... | sed -e 's@\(.*\)\.go@./\1.go@g'
+        uses: protocol/multiple-go-modules@v1.0
+        with:
+          run: |
+            set -o pipefail
+            staticcheck ./... | sed -e 's@\(.*\)\.go@./\1.go@g'
 
