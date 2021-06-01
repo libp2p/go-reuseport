@@ -2,6 +2,7 @@
 # See https://github.com/protocol/.github/ for details.
 
 on: [push, pull_request]
+name: Go Test
 
 jobs:
   unit:
@@ -11,9 +12,11 @@ jobs:
         os: [ "ubuntu", "windows", "macos" ]
         go: [ "1.15.x", "1.16.x" ]
     runs-on: ${{ matrix.os }}-latest
-    name: Unit tests (${{ matrix.os}}, Go ${{ matrix.go }})
+    name: ${{ matrix.os}} (go ${{ matrix.go }})
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
@@ -22,17 +25,23 @@ jobs:
           go version
           go env
       - name: Run tests
-        run: go test -v -coverprofile coverage.txt ./...
+        uses: protocol/multiple-go-modules@v1.0
+        with:
+          run: go test -v -coverprofile coverage.txt ./...
       - name: Run tests (32 bit)
         if: ${{ matrix.os != 'macos' }} # can't run 32 bit tests on OSX.
+        uses: protocol/multiple-go-modules@v1.0
         env:
           GOARCH: 386
-        run: go test -v ./...
+        with:
+          run: go test -v ./...
       - name: Run tests with race detector
         if: ${{ matrix.os == 'ubuntu' }} # speed things up. Windows and OSX VMs are slow
-        run: go test -v -race ./...
+        uses: protocol/multiple-go-modules@v1.0
+        with:
+          run: go test -v -race ./...
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@967e2b38a85a62bd61be5529ada27ebc109948c2 # v1.4.1
+        uses: codecov/codecov-action@a1ed4b322b4b38cb846afb5a0ebfa17086917d27 # v1.5.0
         with:
           file: coverage.txt
           env_vars: OS=${{ matrix.os }}, GO=${{ matrix.go }}

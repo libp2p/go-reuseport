@@ -5,11 +5,35 @@
 # This reduces the friction associated with updating with our workflows.
 
 on: [ pull_request ]
+name: Automerge
 
 jobs:
-  automerge:
+  automerge-check:
     if: github.event.pull_request.user.login == 'web3-bot'
     runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.should-automerge.outputs.status }}
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Check if we should automerge
+      id: should-automerge
+      run: |
+        for commit in $(git rev-list --first-parent origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}); do
+          committer=$(git show --format=$'%ce' -s $commit)
+          echo "Committer: $committer"
+          if [[ "$committer" != "web3-bot@users.noreply.github.com" ]]; then
+            echo "Commit $commit wasn't committed by web3-bot, but by $committer."
+            echo "::set-output name=status::false"
+            exit
+          fi
+        done
+        echo "::set-output name=status::true"
+  automerge:
+    needs: automerge-check
+    runs-on: ubuntu-latest
+    if: ${{ needs.automerge-check.outputs.status == 'true' }}
     steps:
     - name: Wait on tests
       uses: lewagon/wait-on-check-action@bafe56a6863672c681c3cf671f5e10b20abf2eaa # v0.2
