@@ -6,9 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,7 +46,7 @@ func TestListenPacketWildcardAddress(t *testing.T) {
 
 func TestErrorWhenDialUnresolvable(t *testing.T) {
 	_, err := Dial("asd", "127.0.0.1:1234", "127.0.0.1:1234")
-	assert.IsType(t, net.UnknownNetworkError(""), errors.Cause(err))
+	require.ErrorIs(t, err, net.UnknownNetworkError("asd"))
 	_, err = Dial("tcp", "a.b.c.d:1234", "a.b.c.d:1235")
-	assert.Error(t, err)
+	require.Error(t, err)
 }
