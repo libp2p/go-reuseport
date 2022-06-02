@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 )
 
 // Available returns whether or not SO_REUSEPORT or equivalent behaviour is
@@ -47,10 +48,17 @@ func ListenPacket(network, address string) (net.PacketConn, error) {
 	return listenConfig.ListenPacket(context.Background(), network, address)
 }
 
-// Dial dials the given network and address. see net.Dialer.Dial
+// Dial dials the given network and address. see net.Dial
 // Returns a net.Conn created from a file descriptor for a socket
 // with SO_REUSEPORT and SO_REUSEADDR option set.
 func Dial(network, laddr, raddr string) (net.Conn, error) {
+	return DialTimeout(network, laddr, raddr, time.Duration(0))
+}
+
+// Dial dials the given network and address, with the given timeout. see
+// net.DialTimeout Returns a net.Conn created from a file descriptor for
+// a socket with SO_REUSEPORT and SO_REUSEADDR option set.
+func DialTimeout(network, laddr, raddr string, timeout time.Duration) (net.Conn, error) {
 	nla, err := ResolveAddr(network, laddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve local addr: %w", err)
@@ -58,6 +66,7 @@ func Dial(network, laddr, raddr string) (net.Conn, error) {
 	d := net.Dialer{
 		Control:   Control,
 		LocalAddr: nla,
+		Timeout:   timeout,
 	}
 	return d.Dial(network, raddr)
 }
