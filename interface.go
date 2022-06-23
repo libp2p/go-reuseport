@@ -41,6 +41,25 @@ func Listen(network, address string) (net.Listener, error) {
 	return listenConfig.Listen(context.Background(), network, address)
 }
 
+// ListenUDP listens at the given network and address. see net.ListenUDP
+// Returns a *net.UDPConn created from a file discriptor for a socket
+// with SO_REUSEPORT and SO_REUSEADDR option set.
+func ListenUDP(network string, laddr *net.UDPAddr) (*net.UDPConn, error) {
+	udpConn, err := net.ListenUDP(network, laddr)
+	if err != nil {
+		return nil, err
+	}
+	rawConn, err := udpConn.SyscallConn()
+	if err != nil {
+		return nil, err
+	}
+	err = Control("", "", rawConn)
+	if err != nil {
+		return nil, err
+	}
+	return udpConn, nil
+}
+
 // ListenPacket listens at the given network and address. see net.ListenPacket
 // Returns a net.Listener created from a file discriptor for a socket
 // with SO_REUSEPORT and SO_REUSEADDR option set.
