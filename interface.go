@@ -4,14 +4,14 @@
 //
 // For example:
 //
-//  // listen on the same port. oh yeah.
-//  l1, _ := reuse.Listen("tcp", "127.0.0.1:1234")
-//  l2, _ := reuse.Listen("tcp", "127.0.0.1:1234")
+//	// listen on the same port. oh yeah.
+//	l1, _ := reuse.Listen("tcp", "127.0.0.1:1234")
+//	l2, _ := reuse.Listen("tcp", "127.0.0.1:1234")
 //
-//  // dial from the same port. oh yeah.
-//  l1, _ := reuse.Listen("tcp", "127.0.0.1:1234")
-//  l2, _ := reuse.Listen("tcp", "127.0.0.1:1235")
-//  c, _ := reuse.Dial("tcp", "127.0.0.1:1234", "127.0.0.1:1235")
+//	// dial from the same port. oh yeah.
+//	l1, _ := reuse.Listen("tcp", "127.0.0.1:1234")
+//	l2, _ := reuse.Listen("tcp", "127.0.0.1:1235")
+//	c, _ := reuse.Dial("tcp", "127.0.0.1:1234", "127.0.0.1:1235")
 //
 // Note: cant dial self because tcp/ip stacks use 4-tuples to identify connections,
 // and doing so would clash.
