@@ -4,12 +4,10 @@ package reuseport
 
 import (
 	"syscall"
-
+	"runtime"
 	"golang.org/x/sys/unix"
 )
 
-// This value has been taken from https://reviews.freebsd.org/D11003 since this is not yet provided in golang.
-const FREEBSD_SO_REUSEPORT_LB = 0x00010000
 
 func Control(network, address string, c syscall.RawConn) (err error) {
 	controlErr := c.Control(func(fd uintptr) {
@@ -21,7 +19,9 @@ func Control(network, address string, c syscall.RawConn) (err error) {
 		if err != nil {
 			return
 		}
-		err = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, FREEBSD_SO_REUSEPORT_LB, 1)
+		if runtime.GOOS == "freebsd" {
+			err = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT_LB, 1)
+		}
 	})
 	if controlErr != nil {
 		err = controlErr
