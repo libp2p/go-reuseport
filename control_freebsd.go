@@ -4,9 +4,9 @@ package reuseport
 
 import (
 	"syscall"
+
 	"golang.org/x/sys/unix"
 )
-
 
 func Control(network, address string, c syscall.RawConn) (err error) {
 	controlErr := c.Control(func(fd uintptr) {
