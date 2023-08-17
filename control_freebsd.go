@@ -1,4 +1,4 @@
-//go:build !plan9 && !windows && !wasm && !freebsd
+//go:build freebsd
 
 package reuseport
 
@@ -15,6 +15,10 @@ func Control(network, address string, c syscall.RawConn) (err error) {
 			return
 		}
 		err = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+		if err != nil {
+			return
+		}
+		err = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT_LB, 1)
 	})
 	if controlErr != nil {
 		err = controlErr
