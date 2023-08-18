@@ -46,3 +46,10 @@ Tested on `darwin`, `linux`, and `windows`.
 ---
 
 The last gx published version of this module was: 0.2.2: Qme8kdM7thoCqLqd7GYCRqipoZJS64rhJo5MBcTpyWfsL9
+
+## For contributors
+To enable the git hooks:
+
+```bash
+git config core.hooksPath hooks
+```
